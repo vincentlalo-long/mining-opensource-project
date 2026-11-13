@@ -1,7 +1,7 @@
 # Mining the Global Open-Source Software Ecosystem
 
 Capstone project 3 — **Big Data Storage and Processing** (School of Information and Communication
-Technology, HUST). Team of 3, 12 weeks.
+Technology, HUST). Team of 3.
 
 Focus: semi-structured JSON, schema design, columnar storage and distributed aggregation.
 
@@ -40,11 +40,38 @@ docs/reference/  course brief and other material to read
 
 Data is never committed; object storage (MinIO/S3) holds the raw, bronze, silver and gold zones.
 
+## Team ownership
+
+| Responsibility | A — Data Ingestion & Semi-Structured | B — Distributed Processing & Data Model | C — Platform, Serving & Reliability |
+|---|---|---|---|
+| Technical axis | Semi-structured data engineering: JSON parsing, schema evolution, columnar encoding, file sizing | Distributed compute: data modeling, partitioning, shuffle/skew, scale-out | Distributed storage and serving: catalog consistency, Trino performance, fault recovery |
+| System slice (code) | `src/gh_ecosystem/ingest.py`, `jobs/build_bronze.py`, `src/gh_ecosystem/silver/events.py`, `src/gh_ecosystem/gold/activity.py`, `src/gh_ecosystem/storage/parquet.py`, event schema | `jobs/build_silver.py` (common/typed), `jobs/build_gold.py` (driver), `src/gh_ecosystem/gold/community.py`, silver/gold schemas, partitioning | `k8s/`, MinIO, Iceberg, Trino, Superset, Spark runtime/packaging, `experiments.py`, `fault.py`, serving SQL |
+| Hard problems owned | Nested `payload` extraction, malformed/unknown events, schema evolution, Parquet sizing/compaction, ingest idempotency | Dedup keys, partition pruning vs small files, shuffle/skew, join strategy, 10M→100M scale-out | Spark↔Trino catalog consistency, Trino query performance, worker failure/recovery, reproducibility |
+| Mandatory analytics | Event volume by type/time; active repositories; temporal distribution | Unique contributors; Push/Issue/PR/Fork patterns; repository growth; contributor concentration | Issue-to-PR relationships; fast-growth detection; student-defined community metric |
+| Experiments | JSON vs Parquet (size/scan/latency); Parquet file sizing/compaction; ingest/bronze throughput | Partition layouts A/B; representative query at 10M/50M/100M; Spark execution plan/skew | Trino query performance; fault injection/recovery; measurement harness; cross-check |
+| Reviews | B | C | A |
+| Members | Nguyễn Trí Hiếu | Phạm Gia Linh | Nguyễn Đăng Long |
+
+Report writing, rubric evidence and end-to-end review are shared by all three owners: everyone contributes,
+reviews and can explain the full pipeline.
+
+**Hand-off contracts**
+
+- Bronze contract: A owns `ingest.py` and `build_bronze.py`; `bronze.events` keeps `payload` as a string. A owns event-specific extraction in `silver/events.py`; B owns common silver and the gold driver. Shared schema changes require A + B review.
+- Local parity: A and B develop against `config/local.yml` and a 1–2 day fixture; the same code runs on the cluster through `CONFIG`, with no local-only paths.
+- Catalog: Spark and Trino share one Iceberg JDBC catalog on a dedicated Postgres database; changes are recorded in `docs/decisions.md`.
+
+**Team rules**
+
+- Reviews are executable: the reviewer runs the acceptance command and checks the CSV row, not just the diff.
+- Every owner can run the full `make` pipeline and explain the end-to-end flow.
+- Integration work rotates; no owner is the permanent integrator.
+
 ## How to run
 
 `make help` lists the entrypoints (`ingest`, `bronze`, `silver`, `gold`, `all`, `exp`, `fault`, `up`,
 `down`); `make check` verifies the documentation rules. The steps are not implemented yet: each target
-fails with the file it expects until that milestone is reached (see the 12-week table in the brief).
+fails with the file it expects until that milestone is reached.
 
 ## Documentation rules
 
