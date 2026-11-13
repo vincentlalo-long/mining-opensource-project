@@ -1,0 +1,30 @@
+# Data and generated output — never committed
+data/
+*.json.gz
+*.parquet
+*.avro
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Secrets and local config
+.env
+.env.*
+config/local*.yml
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+
+# Logs
+*.log
+logs/
