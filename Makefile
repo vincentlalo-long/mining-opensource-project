@@ -24,7 +24,7 @@ define require
 	@[ -e $(1) ] || { printf 'not implemented yet: %s\n' '$(1)'; exit 1; }
 endef
 
-.PHONY: help check ingest bronze silver gold all exp fault up down
+.PHONY: help check inspect contract-check test-contracts ingest bronze silver gold all exp fault up down
 
 help: ## list targets
 	@printf 'targets (CONFIG=%s):\n' '$(CONFIG)'
@@ -38,6 +38,18 @@ check: ## markdown allowlist + no staged data; run before finishing any task
 	@git ls-files --cached | grep -E '\.(json\.gz|parquet|avro|orc|zip)$$' \
 	&& { printf 'FAIL: data file staged/tracked - see .gitignore\n'; exit 1; } \
 	|| printf 'OK: no data files tracked\n'
+
+inspect: ## inspect one GH Archive hour and record its schema
+	$(call require,src/gh_ecosystem/inspect.py)
+	$(PY) -m gh_ecosystem.inspect --hour $(HOUR) --config $(CONFIG)
+
+contract-check: ## validate the data contracts against the inspected hour
+	$(call require,src/gh_ecosystem/contracts.py)
+	$(PY) -m gh_ecosystem.contracts --config $(CONFIG)
+
+test-contracts: ## run isolated contract and inspection checks without network access
+	$(PY) -m unittest discover -s tests -p 'test_contracts.py' -v
+
 
 ingest: ## download one hour of raw archives into raw/ plus manifest row (W3)
 	$(call require,src/gh_ecosystem/ingest.py)

@@ -1,0 +1,622 @@
+{
+  "version": "v1",
+  "status": "active",
+  "issue": "https://github.com/vincentlalo-long/mining-opensource-project/issues/1",
+  "sample_scope": "One observed UTC hour. The typed-table list covers that sample, not all historical or future event types.",
+  "storage_layout": {
+    "format": "iceberg",
+    "data_file_format": "parquet",
+    "table_location_template": "s3://{zone_bucket}/{entity}",
+    "warehouse_role": "Shared default metadata/table warehouse; set each table location in its zone bucket."
+  },
+  "bronze": {
+    "name": "bronze.events",
+    "owner": "A",
+    "grain": "One accepted raw input event occurrence; duplicate event IDs are retained.",
+    "key": [
+      "source_file",
+      "event_id"
+    ],
+    "key_is_unique": false,
+    "partition": [
+      "days(created_at)"
+    ],
+    "columns": {
+      "event_id": {
+        "source": "id",
+        "type": "string",
+        "nullable": false
+      },
+      "event_type": {
+        "source": "type",
+        "type": "string",
+        "nullable": false
+      },
+      "actor_id": {
+        "source": "actor.id",
+        "type": "long",
+        "nullable": false
+      },
+      "repo_id": {
+        "source": "repo.id",
+        "type": "long",
+        "nullable": false
+      },
+      "org_id": {
+        "source": "org.id",
+        "type": "long",
+        "nullable": true
+      },
+      "created_at": {
+        "source": "created_at",
+        "type": "timestamp",
+        "nullable": false
+      },
+      "payload": {
+        "source": "payload",
+        "type": "string",
+        "nullable": false,
+        "encoding": "json_object_string"
+      },
+      "ingested_at": {
+        "source": "$ingested_at",
+        "type": "timestamp",
+        "nullable": false
+      },
+      "source_file": {
+        "source": "$source_file",
+        "type": "string",
+        "nullable": false
+      }
+    }
+  },
+  "silver": [
+    {
+      "name": "silver.events",
+      "owner": "B",
+      "grain": "One event_id across all event types.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "columns_ref": "bronze.events.columns"
+    },
+    {
+      "name": "silver.commit_comment_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "CommitCommentEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.create_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "CreateEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.delete_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "DeleteEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.fork_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "ForkEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.gollum_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "GollumEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.issue_comment_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "IssueCommentEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.issues_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "IssuesEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.member_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "MemberEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.public_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "PublicEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.pull_request_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "PullRequestEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.pull_request_review_comment_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "PullRequestReviewCommentEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.pull_request_review_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "PullRequestReviewEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.push_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "PushEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.release_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "ReleaseEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    },
+    {
+      "name": "silver.watch_events",
+      "owner": "A extraction; B typed-table driver",
+      "event_type": "WatchEvent",
+      "grain": "One deduplicated event_id of the specified type; keep nested repeated values in arrays in v1.",
+      "key": [
+        "event_id"
+      ],
+      "partition": [
+        "days(created_at)"
+      ],
+      "common_columns_ref": "silver.events",
+      "typed_columns_status": "Define full payload field coverage and evolution in S2; no typed-table implementation in issue #1."
+    }
+  ],
+  "gold": [
+    {
+      "name": "gold.event_volume_daily",
+      "owner": "A",
+      "grain": "One UTC date and event type; count deduplicated silver.events.",
+      "key": [
+        "event_date",
+        "event_type"
+      ],
+      "dimensions": [
+        "event_date",
+        "event_type"
+      ],
+      "metrics": [
+        "event_count"
+      ],
+      "partition": [
+        "event_date"
+      ],
+      "write_policy": "Replace affected UTC dates idempotently; no additive append of rerun aggregates."
+    },
+    {
+      "name": "gold.active_repositories_daily",
+      "owner": "A",
+      "grain": "One UTC date; count distinct repo_id in deduplicated silver.events.",
+      "key": [
+        "event_date"
+      ],
+      "dimensions": [
+        "event_date"
+      ],
+      "metrics": [
+        "active_repository_count"
+      ],
+      "partition": [
+        "event_date"
+      ],
+      "write_policy": "Replace affected UTC dates idempotently; no additive append of rerun aggregates."
+    },
+    {
+      "name": "gold.temporal_activity",
+      "owner": "A",
+      "grain": "One UTC date, UTC hour and event type; count deduplicated silver.events.",
+      "key": [
+        "event_date",
+        "event_hour",
+        "event_type"
+      ],
+      "dimensions": [
+        "event_date",
+        "event_hour",
+        "event_type"
+      ],
+      "metrics": [
+        "event_count"
+      ],
+      "partition": [
+        "event_date"
+      ],
+      "write_policy": "Replace affected UTC dates idempotently; no additive append of rerun aggregates."
+    },
+    {
+      "name": "gold.repository_activity_daily",
+      "owner": "B",
+      "grain": "One UTC date and repository; actor_id identifies contributors, event_type defines counts.",
+      "key": [
+        "event_date",
+        "repo_id"
+      ],
+      "dimensions": [
+        "event_date",
+        "repo_id"
+      ],
+      "metrics": [
+        "event_count",
+        "unique_contributors",
+        "push_count",
+        "issue_count",
+        "pull_request_count",
+        "fork_count"
+      ],
+      "partition": [
+        "event_date"
+      ],
+      "write_policy": "Replace affected UTC dates idempotently; no additive append of rerun aggregates."
+    },
+    {
+      "name": "gold.contributor_concentration_daily",
+      "owner": "B",
+      "grain": "One UTC date and repository; event share per actor_id; top share=max(share), HHI=sum(share squared).",
+      "key": [
+        "event_date",
+        "repo_id"
+      ],
+      "dimensions": [
+        "event_date",
+        "repo_id"
+      ],
+      "metrics": [
+        "top_contributor_share",
+        "contributor_hhi"
+      ],
+      "partition": [
+        "event_date"
+      ],
+      "write_policy": "Replace affected UTC dates idempotently; no additive append of rerun aggregates."
+    },
+    {
+      "name": "gold.repository_growth_daily",
+      "owner": "C",
+      "grain": "One UTC date and repository; relative_growth=(today-yesterday)/yesterday, null when yesterday is zero; threshold remains a later serving decision.",
+      "key": [
+        "event_date",
+        "repo_id"
+      ],
+      "dimensions": [
+        "event_date",
+        "repo_id"
+      ],
+      "metrics": [
+        "event_count",
+        "previous_day_event_count",
+        "relative_growth"
+      ],
+      "partition": [
+        "event_date"
+      ],
+      "write_policy": "Replace affected UTC dates idempotently; no additive append of rerun aggregates."
+    },
+    {
+      "name": "gold.issue_pr_relationships_daily",
+      "owner": "C",
+      "grain": "One UTC date and repository; count distinct explicit same-repository issue/PR pairs in typed payloads; link parser and supported syntax require S2 review.",
+      "key": [
+        "event_date",
+        "repo_id"
+      ],
+      "dimensions": [
+        "event_date",
+        "repo_id"
+      ],
+      "metrics": [
+        "explicit_link_count"
+      ],
+      "partition": [
+        "event_date"
+      ],
+      "write_policy": "Replace affected UTC dates idempotently; no additive append of rerun aggregates."
+    },
+    {
+      "name": "gold.community_development_daily",
+      "owner": "C",
+      "grain": "One UTC date and repository; fraction of active actors first seen in the selected dataset on that date, not lifetime newcomers; null for an empty denominator.",
+      "key": [
+        "event_date",
+        "repo_id"
+      ],
+      "dimensions": [
+        "event_date",
+        "repo_id"
+      ],
+      "metrics": [
+        "new_contributor_share"
+      ],
+      "partition": [
+        "event_date"
+      ],
+      "write_policy": "Replace affected UTC dates idempotently; no additive append of rerun aggregates."
+    }
+  ],
+  "rules": {
+    "timestamps": "Normalize to UTC; Spark TimestampType / Iceberg timestamptz; no naive timestamps. event_date and event_hour derive from created_at in UTC.",
+    "payload": "Serialize the raw payload object as compact, sorted-key JSON with Unicode preserved; semantic roundtrip, not byte-identical JSON. Preserve original gzip bytes in raw.",
+    "identifier_policy": "event_id stays an opaque nonempty string; actor_id/repo_id/org_id are positive signed 64-bit integers. org_id is null for a missing/null org or org.id.",
+    "invalid_raw_policy": "Reject malformed JSON and missing/invalid required bronze values; retain the raw archive. Production quarantine behavior is a follow-up; the S0 checker fails rather than silently coercing.",
+    "unknown_event_policy": "Accept any nonempty event_type in bronze and common silver; retain payload. Add a typed-table proposal for newly observed types during contract review; never discard an unrecognized type.",
+    "dedup_scope": "Silver global event_id across input files/hours; bronze keeps duplicates. Event-specific silver is filtered from deduplicated common silver.",
+    "dedup_winner": "Choose the earliest ingested_at, then lexical source_file, then SHA-256 of canonical JSON of all bronze event columns except ingested_at/source_file; retain conflict evidence for differing occurrences. Identical ties have identical values.",
+    "partition_v1": "Iceberg hidden days(created_at) for bronze/silver; identity event_date for gold. Do not partition by event_type/repo_id or hour in v1; compare other layouts later.",
+    "evolution": "New top-level raw fields remain in the original archive; extra payload keys remain in the string. Unknown types use common silver. Breaking common-field changes need a new contract and A+B review.",
+    "ownership": "A owns event extraction; B owns common silver and gold drivers; C owns runtime/catalog/serving. Proceed within the requested scope; review incidents and shared-interface changes without blocking ordinary implementation.",
+    "local_cluster_parity": "Same code and config key set; paths/endpoints/master/scale values vary by config. S0 checker exercises local bytes only; cluster execution is not claimed.",
+    "config_encoding": "Examples use the JSON subset of YAML, loadable with Python stdlib json; a general YAML loader requires a separately approved dependency.",
+    "measurement_schema": "results/experiments.csv uses long-form: experiment_id,run_id,recorded_at,config,source_file,metric,value,unit. Peer review is not a delivery gate.",
+    "measurement_scope": "Download plus gzip-validation time is separate from scan time; cache hits omit download time. No JSON-vs-Parquet, throughput-scale or cluster result is inferred."
+  },
+  "config_keys": {
+    "contract_version": {
+      "type": "string",
+      "purpose": "Active data contract version."
+    },
+    "source.base_url": {
+      "type": "string",
+      "purpose": "GH Archive archive base URL."
+    },
+    "storage.raw_dir": {
+      "type": "string",
+      "purpose": "Original compressed sample archive directory; local filesystem for S0 inspection."
+    },
+    "storage.buckets.raw": {
+      "type": "string",
+      "purpose": "Object-storage bucket for the raw zone."
+    },
+    "storage.buckets.bronze": {
+      "type": "string",
+      "purpose": "Object-storage bucket for the bronze zone."
+    },
+    "storage.buckets.silver": {
+      "type": "string",
+      "purpose": "Object-storage bucket for the silver zone."
+    },
+    "storage.buckets.gold": {
+      "type": "string",
+      "purpose": "Object-storage bucket for the gold zone."
+    },
+    "storage.s3_endpoint": {
+      "type": "string",
+      "purpose": "S3-compatible endpoint reachable by the selected environment."
+    },
+    "storage.s3_region": {
+      "type": "string",
+      "purpose": "Object-store signing region."
+    },
+    "storage.s3_path_style_access": {
+      "type": "boolean",
+      "purpose": "Use path-style addressing for MinIO."
+    },
+    "storage.s3_access_key_env": {
+      "type": "string",
+      "purpose": "Name of the environment variable holding the S3 access key, never a credential."
+    },
+    "storage.s3_secret_key_env": {
+      "type": "string",
+      "purpose": "Name of the environment variable holding the S3 secret key, never a credential."
+    },
+    "spark.master": {
+      "type": "string",
+      "purpose": "Spark execution master; packaging and submit flags remain C's responsibility."
+    },
+    "spark.session_timezone": {
+      "type": "string",
+      "purpose": "UTC for event timestamps and day boundaries."
+    },
+    "spark.shuffle_partitions": {
+      "type": "integer",
+      "purpose": "Positive environment-specific shuffle scale knob; not a benchmark result."
+    },
+    "iceberg.catalog_name": {
+      "type": "string",
+      "purpose": "One logical catalog name shared by Spark and Trino."
+    },
+    "iceberg.catalog_type": {
+      "type": "string",
+      "purpose": "JDBC catalog type shared by Spark and Trino."
+    },
+    "iceberg.jdbc_uri": {
+      "type": "string",
+      "purpose": "Dedicated Postgres iceberg_catalog database; no embedded credentials."
+    },
+    "iceberg.jdbc_user_env": {
+      "type": "string",
+      "purpose": "Environment variable name for catalog user."
+    },
+    "iceberg.jdbc_password_env": {
+      "type": "string",
+      "purpose": "Environment variable name for catalog password."
+    },
+    "iceberg.warehouse": {
+      "type": "string",
+      "purpose": "Shared default warehouse URI; explicit per-zone table locations override this default."
+    },
+    "iceberg.file_format": {
+      "type": "string",
+      "purpose": "Parquet data files managed by Iceberg."
+    },
+    "inspection.chunk_bytes": {
+      "type": "integer",
+      "purpose": "Streaming I/O buffer size."
+    },
+    "inspection.timeout_seconds": {
+      "type": "integer",
+      "purpose": "HTTP socket timeout; not a throughput target."
+    },
+    "inspection.manifest_path": {
+      "type": "string",
+      "purpose": "Configured manifest path; no code-local output paths."
+    },
+    "inspection.fields_path": {
+      "type": "string",
+      "purpose": "Configured fields path; no code-local output paths."
+    },
+    "inspection.event_types_path": {
+      "type": "string",
+      "purpose": "Configured event types path; no code-local output paths."
+    },
+    "inspection.evidence_path": {
+      "type": "string",
+      "purpose": "Configured evidence path; no code-local output paths."
+    },
+    "inspection.experiments_path": {
+      "type": "string",
+      "purpose": "Configured experiments path; no code-local output paths."
+    },
+    "inspection.contract_path": {
+      "type": "string",
+      "purpose": "Configured contract path; no code-local output paths."
+    },
+    "inspection.cluster_config_path": {
+      "type": "string",
+      "purpose": "Configured cluster config path; no code-local output paths."
+    }
+  },
+  "config_invariants": {
+    "contract_version": "v1",
+    "spark.session_timezone": "UTC",
+    "iceberg.catalog_name": "gh_ecosystem",
+    "iceberg.catalog_type": "jdbc",
+    "iceberg.warehouse": "s3://bronze/warehouse",
+    "iceberg.file_format": "parquet",
+    "storage.buckets.raw": "raw",
+    "storage.buckets.bronze": "bronze",
+    "storage.buckets.silver": "silver",
+    "storage.buckets.gold": "gold"
+  },
+  "review_policy": "Implementation may proceed under Hieu's instruction; peer approval is not a delivery gate. Review incidents and interface changes with the relevant owners."
+}
