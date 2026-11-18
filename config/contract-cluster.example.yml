@@ -41,5 +41,15 @@
     "experiments_path": "/workspace/results/experiments.csv",
     "contract_path": "src/gh_ecosystem/event_contract_v1.json",
     "cluster_config_path": "config/contract-cluster.example.yml"
+  },
+  "capacity": {
+    "sample_hours": 24,
+    "planning_days": [
+      1,
+      7,
+      30
+    ],
+    "raw_budget_bytes": 17179869184,
+    "evidence_path": "/workspace/results/issue_3_capacity.json"
   }
 }

@@ -604,6 +604,22 @@
     "inspection.cluster_config_path": {
       "type": "string",
       "purpose": "Configured cluster config path; no code-local output paths."
+    },
+    "capacity.sample_hours": {
+      "type": "integer",
+      "purpose": "Consecutive sample hours required by issue #3."
+    },
+    "capacity.planning_days": {
+      "type": "integer_list",
+      "purpose": "Day/week/month planning horizons; linear assumptions, not observed benchmarks."
+    },
+    "capacity.raw_budget_bytes": {
+      "type": "integer",
+      "purpose": "Assumed raw-only storage budget for choosing a planning horizon; not measured free cluster storage."
+    },
+    "capacity.evidence_path": {
+      "type": "string",
+      "purpose": "Source-capacity evidence output path."
     }
   },
   "config_invariants": {
