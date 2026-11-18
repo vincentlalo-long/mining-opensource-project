@@ -25,3 +25,34 @@ Why: the team works on three machines and AI assistants kept generating stray ma
 root, which made the repo unreadable and duplicated content that the final report must contain anyway.
 Rejected: a full `docs/` tree with ADR-per-file, per-experiment write-ups and a weekly plan file —
 too much prose to maintain for a 12-week course project.
+
+
+## D-002 — Schema bronze (2026-11-15)
+Decision: Đề xuất schema trong [contract v1](../src/gh_ecosystem/event_contract_v1.json): trường chung có kiểu rõ ràng, chỉ `org_id` nullable; `payload` là JSON string, timestamp UTC, giữ nguyên gzip ở raw.
+Why: Trích trường chung để truy vấn, giữ payload và raw để xử lý khác biệt giữa các event type; dữ liệu sai trường bắt buộc phải báo lỗi.
+Rejected: Parse payload thành struct ở bronze, ép kiểu âm thầm hoặc bỏ bản raw.
+
+## D-003 — Grain của silver và gold (2026-11-15)
+Decision: Bronze giữ bản trùng; `silver.events` dedup toàn cục theo `event_id`, các bảng theo event giữ một hàng/event_id; gold tổng hợp theo dimension/key. Tên bảng và metric nằm trong contract v1.
+Why: Dedup chọn `ingested_at` sớm nhất, rồi `source_file`, rồi hash nội dung; gold ghi lại ngày bị ảnh hưởng để chạy lại không cộng trùng. Loại event lạ vẫn được giữ ở common silver; typed schema đầy đủ để S2.
+Rejected: Dedup riêng từng giờ, bung array làm đổi grain hoặc append aggregate khi rerun; định nghĩa metric của B/C cần họ review.
+
+## D-004 — Lưu trữ và partition (2026-11-15)
+Decision: Dùng Iceberg/Parquet; bronze/silver partition `days(created_at)`, gold partition `event_date` UTC; mỗi bảng nằm trong bucket của zone lấy từ config.
+Why: Phân vùng theo thời gian sự kiện giúp lọc ngày, xử lý dữ liệu đến muộn và hạn chế số partition ở v1.
+Rejected: Partition theo repo/loại event/giờ khi chưa đo small-file và skew; v1 chưa phải kết luận hiệu năng.
+
+## D-005 — Config, catalog và entrypoint (2026-11-15)
+Decision: Hai config mẫu local/cluster dùng cùng key và cú pháp JSON hợp lệ trong YAML; catalog JDBC `gh_ecosystem`, Postgres database `iceberg_catalog`, warehouse `s3://bronze/warehouse`; credential lấy qua biến môi trường.
+Why: Giữ cùng code giữa môi trường và không thêm dependency. `make ingest` và `make inspect` dùng chung hàm tải mẫu trong `src/`; config key/type nằm trong contract, runtime do C review.
+Rejected: Hardcode đường dẫn/bucket trong code, nhúng credential, catalog riêng từng engine hoặc downloader riêng cho khảo sát.
+
+## D-006 — Bằng chứng và trạng thái hợp đồng (2026-11-15)
+Decision: Issue #1 dùng mẫu UTC `2024-01-01-0`; [bằng chứng](../results/issue_1_sample.json) liên kết URL, checksum, manifest và run_id. Số đo nằm trong [experiments.csv](../results/experiments.csv), header chờ C review; toàn bộ hợp đồng chờ B/C duyệt trong issue.
+Why: Nghiệm thu bằng `make inspect HOUR=2024-01-01-0 CONFIG=config/local.yml`, `make contract-check CONFIG=config/local.yml`, `make test-contracts`, `make check`; config/local.yml sao chép từ mẫu local và được gitignore.
+Rejected: Coi khảo sát một giờ là benchmark quy mô, ghi thời gian tải mới cho cache hit, triển khai backfill/silver/gold/cluster trong issue này hoặc tự xác nhận review đã hoàn tất.
+
+## D-007 — Triển khai không chờ review (2026-11-15)
+Decision: Theo yêu cầu của Hiếu, áp dụng hợp đồng v1 để triển khai; review không còn là điều kiện chặn bàn giao, thay cho phần chờ duyệt trong D-006.
+Why: Hợp đồng hỗ trợ phối hợp; kiểm tra thực thi và bằng chứng là cơ sở xác nhận kết quả, trao đổi với owner khi có sự cố hoặc thay đổi giao diện chung.
+Rejected: Dừng công việc chỉ vì chưa có comment duyệt hoặc tự nhận rằng người khác đã review.

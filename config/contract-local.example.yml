@@ -1,0 +1,45 @@
+{
+  "contract_version": "v1",
+  "source": {
+    "base_url": "https://data.gharchive.org"
+  },
+  "storage": {
+    "raw_dir": "data/raw",
+    "buckets": {
+      "raw": "raw",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold"
+    },
+    "s3_endpoint": "http://localhost:9000",
+    "s3_region": "us-east-1",
+    "s3_path_style_access": true,
+    "s3_access_key_env": "AWS_ACCESS_KEY_ID",
+    "s3_secret_key_env": "AWS_SECRET_ACCESS_KEY"
+  },
+  "spark": {
+    "master": "local[*]",
+    "session_timezone": "UTC",
+    "shuffle_partitions": 4
+  },
+  "iceberg": {
+    "catalog_name": "gh_ecosystem",
+    "catalog_type": "jdbc",
+    "jdbc_uri": "jdbc:postgresql://localhost:5432/iceberg_catalog",
+    "jdbc_user_env": "ICEBERG_JDBC_USER",
+    "jdbc_password_env": "ICEBERG_JDBC_PASSWORD",
+    "warehouse": "s3://bronze/warehouse",
+    "file_format": "parquet"
+  },
+  "inspection": {
+    "chunk_bytes": 1048576,
+    "timeout_seconds": 120,
+    "manifest_path": "data/raw/inspection_manifest.csv",
+    "fields_path": "results/schema_fields.csv",
+    "event_types_path": "results/event_types.csv",
+    "evidence_path": "results/issue_1_sample.json",
+    "experiments_path": "results/experiments.csv",
+    "contract_path": "src/gh_ecosystem/event_contract_v1.json",
+    "cluster_config_path": "config/contract-cluster.example.yml"
+  }
+}

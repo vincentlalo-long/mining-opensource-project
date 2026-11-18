@@ -1,0 +1,15 @@
+{
+  "issue": "https://github.com/vincentlalo-long/mining-opensource-project/issues/1",
+  "scope": "One observed UTC hour; not full event coverage or a scale benchmark.",
+  "hour": "2024-01-01-0",
+  "source_url": "https://data.gharchive.org/2024-01-01-0.json.gz",
+  "local_path": "data/raw/2024-01-01-0.json.gz",
+  "sha256": "d68c3e2d4443c01a02e25e23fc7b809e34027b26257bb743adadc4aaac1b9308",
+  "downloaded_at": "2026-11-15T04:25:29.672735Z",
+  "run_id": "aaf41246-31f6-48e7-a430-02032ca6ef1f",
+  "config": "config/local.yml",
+  "experiments_path": "results/experiments.csv",
+  "fields_path": "results/schema_fields.csv",
+  "event_types_path": "results/event_types.csv",
+  "contract_status": "active"
+}

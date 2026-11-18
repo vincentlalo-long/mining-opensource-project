@@ -1,0 +1,9 @@
+field,observed_types,missing_in_sample,null_in_sample
+actor,object,false,false
+created_at,string,false,false
+id,string,false,false
+org,object,true,false
+payload,object,false,false
+public,boolean,false,false
+repo,object,false,false
+type,string,false,false
