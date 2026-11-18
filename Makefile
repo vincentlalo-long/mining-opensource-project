@@ -10,6 +10,7 @@ SHELL := /bin/bash
 
 CONFIG  ?= config/dev.yml
 HOUR    ?= 2024-01-01-0
+RESUME  ?= 0
 FROM    ?= 2024-01-01-0
 TO      ?= 2024-01-01-23
 EXP     ?= EXP-001
@@ -24,7 +25,7 @@ define require
 	@[ -e $(1) ] || { printf 'not implemented yet: %s\n' '$(1)'; exit 1; }
 endef
 
-.PHONY: help check inspect contract-check test-contracts measure-source capacity-check test-capacity ingest bronze silver gold all exp fault up down
+.PHONY: help check inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest bronze silver gold all exp fault up down
 
 help: ## list targets
 	@printf 'targets (CONFIG=%s):\n' '$(CONFIG)'
@@ -61,9 +62,12 @@ capacity-check: ## verify the measured sample files, CSV totals and capacity ass
 test-capacity: ## check source measurement and capacity assumptions without network access
 	$(PY) -m unittest discover -s tests -p 'test_capacity.py' -v
 
-ingest: ## download one hour of raw archives into raw/ plus manifest row (W3)
+ingest: ## ingest one raw hour, or recheck/resume manifest hours with RESUME=1
 	$(call require,src/gh_ecosystem/ingest.py)
-	$(PY) -m gh_ecosystem.ingest --hour $(HOUR) --config $(CONFIG)
+	$(PY) -m gh_ecosystem.ingest $(if $(filter 1,$(RESUME)),--resume,--hour $(HOUR)) --config $(CONFIG)
+
+test-ingest: ## exercise ingestion, retries and resume without a network dependency
+	$(PY) -m unittest discover -s tests -p 'test_ingest.py' -v
 
 bronze: ## raw .json.gz -> bronze.events, payload kept as string (W4-W5)
 	$(call require,jobs/build_bronze.py)

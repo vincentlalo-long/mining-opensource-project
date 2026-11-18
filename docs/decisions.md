@@ -61,3 +61,8 @@ Rejected: Dừng công việc chỉ vì chưa có comment duyệt hoặc tự nh
 Decision: Chọn khoảng mục tiêu `2024-01-01-0` đến `2024-01-07-23` theo ngân sách raw trong config; [bằng chứng issue #3](../results/issue_3_capacity.json) liên kết manifest và run_id. Chỉ tải ngày mẫu, backfill khoảng mục tiêu là việc tiếp theo.
 Why: `make measure-source FROM=2024-01-01-0 TO=2024-01-01-23 CONFIG=config/local.yml` đo đủ ngày; `make capacity-check CONFIG=config/local.yml` kiểm file và CSV. Dòng `measured.*` là số đo, `planning.*` là dự trù tuyến tính ngày/tuần/tháng, chưa đo storage curated hay xử lý phân tán.
 Rejected: Coi ngày mẫu đại diện mọi ngày, coi budget là dung lượng cluster đã cấp hoặc dùng dự trù làm benchmark; xác minh khả năng lưu trữ và xử lý trước khi backfill.
+
+## D-023 — Trạng thái manifest và chạy tiếp ingestion (2026-11-19)
+Decision: #5 giữ một dòng mỗi giờ UTC với các cột `hour,source_url,local_path,sha256,compressed_bytes,downloaded_at,status,ingested_at,error`. Chỉ công bố trạng thái `ok` sau khi kiểm gzip và lưu file. `pending` đánh dấu lần tải chưa xong, `failed` giữ lý do lỗi; checksum, dung lượng và thời điểm nạp để trống ở hai trạng thái này.
+Why: Giữ bằng chứng cũ của #1/#3 bằng cách đọc header cũ và giữ nguyên `downloaded_at` khi nâng cấp. `make ingest RESUME=1 CONFIG=config/local.yml` kiểm các giờ đã ghi; file `ok` khớp SHA-256 được dùng lại. Số lần thử và thời gian chờ lấy từ config, một tiến trình ghi manifest tại mỗi thời điểm.
+Rejected: Thêm dòng trùng khi chạy lại, coi file tải dở là đã xong, thử lại lỗi HTTP vĩnh viễn hoặc tự tải các giờ chưa có trong manifest.

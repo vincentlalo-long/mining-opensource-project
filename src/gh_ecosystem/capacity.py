@@ -10,8 +10,8 @@ from datetime import timedelta
 from pathlib import Path
 
 from gh_ecosystem.ingest import (
-    EXPERIMENT_COLUMNS, MANIFEST_COLUMNS, acquire_sample, load_config, parse_hour,
-    read_csv, sha256_file, utc_now,
+    EXPERIMENT_COLUMNS, INGEST_ERRORS, acquire_sample, load_config, parse_hour,
+    read_csv, read_manifest, sha256_file, utc_now,
 )
 from gh_ecosystem.inspect import profile_archive
 
@@ -96,7 +96,7 @@ def measure_source(config_path, first, last):
                     totals["new_download_and_validation_seconds"] += download_seconds
                     measure("measured.hour.download_and_gzip_validation_seconds", download_seconds, "seconds", source)
                 print(f"OK {hour}: measurements appended", flush=True)
-            except (OSError, ValueError, EOFError) as error:
+            except INGEST_ERRORS as error:
                 totals["failures"] += 1
                 failures.append({"hour": hour, "error": str(error)})
                 measure("measured.hour.failures", 1, "count", source)
@@ -148,10 +148,7 @@ def check_capacity(config_path):
     indexed = {(row["source_file"], row["metric"]): row for row in measured}
     if len(indexed) != len(measured) or any(row["experiment_id"] != "EXP-001" for row in measured):
         raise ValueError("Duplicate or misidentified daily measurements")
-    manifest_rows = read_csv(config["inspection"]["manifest_path"], MANIFEST_COLUMNS)
-    manifest = {row["hour"]: row for row in manifest_rows}
-    if len(manifest_rows) != len(manifest):
-        raise ValueError("Duplicate hours in the sample manifest")
+    manifest = read_manifest(config["inspection"]["manifest_path"])
     source_range = f"{config['source']['base_url'].rstrip('/')}/{evidence['sample_from']}..{evidence['sample_to']}"
     totals = {"files": 0, "events": 0, "compressed_bytes": 0, "uncompressed_bytes": 0,
               "cache_reused_files": 0, "downloaded_files": 0, "scan_seconds": 0.0,
@@ -167,6 +164,8 @@ def check_capacity(config_path):
         row = manifest.get(hour)
         if row is None:
             raise ValueError(f"Missing sample manifest hour: {hour}")
+        if row["status"] != "ok":
+            raise ValueError(f"Sample manifest hour is not ok: {hour}")
         path = Path(config["storage"]["raw_dir"]) / f"{hour}.json.gz"
         source = f"{config['source']['base_url'].rstrip('/')}/{hour}.json.gz"
         if row["source_url"] != source or row["local_path"] != path.as_posix():

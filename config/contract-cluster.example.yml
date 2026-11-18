@@ -3,6 +3,11 @@
   "source": {
     "base_url": "https://data.gharchive.org"
   },
+  "ingestion": {
+    "max_attempts": 3,
+    "retry_initial_seconds": 1,
+    "retry_max_seconds": 8
+  },
   "storage": {
     "raw_dir": "/workspace/data/raw",
     "buckets": {
