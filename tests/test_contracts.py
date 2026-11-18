@@ -148,11 +148,15 @@ class InspectionTests(unittest.TestCase):
         self.assertEqual(len(manifest), 1)
 
     def test_truncated_download_is_not_published(self):
+        self.config["ingestion"]["max_attempts"] = 1
         with patch("urllib.request.urlopen", return_value=Response(self.sample, len(self.sample) + 1)):
             with self.assertRaisesRegex(ValueError, "Incomplete"):
                 acquire_sample(self.config, HOUR)
         self.assertFalse(list((self.root / "raw").iterdir()))
-        self.assertFalse(Path(self.config["inspection"]["manifest_path"]).exists())
+        manifest = read_csv(self.config["inspection"]["manifest_path"], MANIFEST_COLUMNS)
+        self.assertEqual(len(manifest), 1)
+        self.assertEqual(manifest[0]["status"], "failed")
+        self.assertIn("Incomplete", manifest[0]["error"])
 
     def test_corrupt_gzip_is_not_published(self):
         with patch("urllib.request.urlopen", return_value=Response(b"not a gzip archive")):

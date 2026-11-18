@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gh_ecosystem.ingest import (
-    EXPERIMENT_COLUMNS, MANIFEST_COLUMNS, load_config, read_csv, sha256_file,
+    EXPERIMENT_COLUMNS, load_config, read_csv, read_manifest, sha256_file,
 )
 from gh_ecosystem.inspect import profile_archive
 
@@ -149,13 +149,11 @@ def check_sample(config_path):
         raise ValueError("Sample does not match configured source and raw directory")
     if sha256_file(path, inspect["chunk_bytes"]) != evidence["sha256"]:
         raise ValueError("Sample checksum does not match evidence")
-    manifest = [row for row in read_csv(inspect["manifest_path"], MANIFEST_COLUMNS)
-                if row["hour"] == evidence["hour"]]
-    if len(manifest) != 1 or any(manifest[0][key] != evidence[evidence_key] for key, evidence_key in
-                                [("source_url", "source_url"), ("local_path", "local_path"),
-                                 ("sha256", "sha256"), ("downloaded_at", "downloaded_at")]):
+    manifest = read_manifest(inspect["manifest_path"]).get(evidence["hour"])
+    if (manifest is None or manifest["status"] != "ok"
+            or any(manifest[key] != evidence[key] for key in ("source_url", "local_path", "sha256", "downloaded_at"))):
         raise ValueError("Sample manifest and evidence do not match")
-    if int(manifest[0]["compressed_bytes"]) != path.stat().st_size:
+    if int(manifest["compressed_bytes"]) != path.stat().st_size:
         raise ValueError("Manifest byte count does not match sample")
     measured = read_csv(inspect["experiments_path"], EXPERIMENT_COLUMNS)
     run_rows = [row for row in measured if row["run_id"] == evidence["run_id"]]

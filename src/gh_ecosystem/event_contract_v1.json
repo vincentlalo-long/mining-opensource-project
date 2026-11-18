@@ -489,6 +489,18 @@
       "type": "string",
       "purpose": "GH Archive archive base URL."
     },
+    "ingestion.max_attempts": {
+      "type": "integer",
+      "purpose": "Maximum transfer attempts per hour, including the first attempt."
+    },
+    "ingestion.retry_initial_seconds": {
+      "type": "integer",
+      "purpose": "Initial wait in seconds after a transient download failure."
+    },
+    "ingestion.retry_max_seconds": {
+      "type": "integer",
+      "purpose": "Upper bound for exponential retry waits."
+    },
     "storage.raw_dir": {
       "type": "string",
       "purpose": "Original compressed sample archive directory; local filesystem for S0 inspection."
