@@ -93,7 +93,7 @@ def validate_contract(contract, local, cluster):
     local_keys, cluster_keys = flatten_keys(local), flatten_keys(cluster)
     if set(local_keys) != set(cluster_keys) or set(local_keys) != set(contract["config_keys"]):
         raise ValueError("Local, cluster and documented config key sets must match")
-    types = {"string": str, "integer": int, "boolean": bool}
+    types = {"string": str, "integer": int, "boolean": bool, "integer_list": list}
     for key, spec in contract["config_keys"].items():
         for values in (local_keys, cluster_keys):
             value = values[key]
@@ -103,6 +103,8 @@ def validate_contract(contract, local, cluster):
                 raise ValueError(f"Empty config value: {key}")
             if type(value) is int and value <= 0:
                 raise ValueError(f"Config integer must be positive: {key}")
+            if isinstance(value, list) and (not value or any(type(item) is not int or item <= 0 for item in value)):
+                raise ValueError(f"Expected a nonempty list of positive integers: {key}")
     for config in (local, cluster):
         for key, expected in contract["config_invariants"].items():
             if flatten_keys(config)[key] != expected:

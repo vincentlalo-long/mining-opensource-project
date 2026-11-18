@@ -56,3 +56,8 @@ Rejected: Coi khảo sát một giờ là benchmark quy mô, ghi thời gian t�
 Decision: Theo yêu cầu của Hiếu, áp dụng hợp đồng v1 để triển khai; review không còn là điều kiện chặn bàn giao, thay cho phần chờ duyệt trong D-006.
 Why: Hợp đồng hỗ trợ phối hợp; kiểm tra thực thi và bằng chứng là cơ sở xác nhận kết quả, trao đổi với owner khi có sự cố hoặc thay đổi giao diện chung.
 Rejected: Dừng công việc chỉ vì chưa có comment duyệt hoặc tự nhận rằng người khác đã review.
+
+## D-008 — Khoảng dữ liệu mục tiêu sau khảo sát nguồn (2026-11-15)
+Decision: Chọn khoảng mục tiêu `2024-01-01-0` đến `2024-01-07-23` theo ngân sách raw trong config; [bằng chứng issue #3](../results/issue_3_capacity.json) liên kết manifest và run_id. Chỉ tải ngày mẫu, backfill khoảng mục tiêu là việc tiếp theo.
+Why: `make measure-source FROM=2024-01-01-0 TO=2024-01-01-23 CONFIG=config/local.yml` đo đủ ngày; `make capacity-check CONFIG=config/local.yml` kiểm file và CSV. Dòng `measured.*` là số đo, `planning.*` là dự trù tuyến tính ngày/tuần/tháng, chưa đo storage curated hay xử lý phân tán.
+Rejected: Coi ngày mẫu đại diện mọi ngày, coi budget là dung lượng cluster đã cấp hoặc dùng dự trù làm benchmark; xác minh khả năng lưu trữ và xử lý trước khi backfill.

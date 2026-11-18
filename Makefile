@@ -24,7 +24,7 @@ define require
 	@[ -e $(1) ] || { printf 'not implemented yet: %s\n' '$(1)'; exit 1; }
 endef
 
-.PHONY: help check inspect contract-check test-contracts ingest bronze silver gold all exp fault up down
+.PHONY: help check inspect contract-check test-contracts measure-source capacity-check test-capacity ingest bronze silver gold all exp fault up down
 
 help: ## list targets
 	@printf 'targets (CONFIG=%s):\n' '$(CONFIG)'
@@ -50,6 +50,16 @@ contract-check: ## validate the data contracts against the inspected hour
 test-contracts: ## run isolated contract and inspection checks without network access
 	$(PY) -m unittest discover -s tests -p 'test_contracts.py' -v
 
+measure-source: ## measure exactly 24 consecutive GH Archive hours and plan capacity
+	$(call require,src/gh_ecosystem/capacity.py)
+	$(PY) -m gh_ecosystem.capacity --from $(FROM) --to $(TO) --config $(CONFIG)
+
+capacity-check: ## verify the measured sample files, CSV totals and capacity assumptions
+	$(call require,src/gh_ecosystem/capacity.py)
+	$(PY) -m gh_ecosystem.capacity --check --config $(CONFIG)
+
+test-capacity: ## check source measurement and capacity assumptions without network access
+	$(PY) -m unittest discover -s tests -p 'test_capacity.py' -v
 
 ingest: ## download one hour of raw archives into raw/ plus manifest row (W3)
 	$(call require,src/gh_ecosystem/ingest.py)
