@@ -124,7 +124,7 @@ def inspect_hour(config_path, hour):
     result_path.parent.mkdir(parents=True, exist_ok=True)
     exists = result_path.exists()
     with result_path.open("a", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=EXPERIMENT_COLUMNS)
+        writer = csv.DictWriter(stream, fieldnames=EXPERIMENT_COLUMNS, lineterminator="\n")
         if not exists:
             writer.writeheader()
         writer.writerows(rows)

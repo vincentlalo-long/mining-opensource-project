@@ -13,8 +13,9 @@ repositories or communities whose activity is changing rapidly?
 ## Dataset
 
 [GH Archive](https://www.gharchive.org/) hourly public GitHub events (`.json.gz`), processed from the
-raw archives ourselves. Target scope: 6–24 months, ~30–80 GB. Querying a hosted copy alone does not
-satisfy the project.
+raw archives ourselves. Recommended scope: 6–24 months, ~30–80 GB. The baseline for the required scale
+experiments is 30 days (`2024-01-01-0` to `2024-01-30-23`, ~116M events, ~54 GB compressed); extend
+toward 6 months when storage allows. Querying a hosted copy alone does not satisfy the project.
 
 ## Reference architecture
 
@@ -38,7 +39,8 @@ docs/            decisions log + final report
 docs/reference/  course brief and other material to read
 ```
 
-Data is never committed; object storage (MinIO/S3) holds the raw, bronze, silver and gold zones.
+Data is never committed. The cluster target is MinIO/S3 for the raw, bronze, silver and gold zones;
+local ingestion keeps a gitignored raw cache until the MinIO upload lands with the platform issue.
 
 ## Team ownership
 
@@ -64,14 +66,29 @@ reviews and can explain the full pipeline.
 **Team rules**
 
 - Reviews are executable: the reviewer runs the acceptance command and checks the CSV row, not just the diff.
+- Merge to `main` through a pull request with at least one approval and the `ci` check; do not push directly.
+  The repository owner can bypass for an emergency, but the normal path is review first.
 - Every owner can run the full `make` pipeline and explain the end-to-end flow.
 - Integration work rotates; no owner is the permanent integrator.
 
 ## How to run
 
-`make help` lists the entrypoints (`ingest`, `bronze`, `silver`, `gold`, `all`, `exp`, `fault`, `up`,
-`down`); `make check` verifies the documentation rules. The steps are not implemented yet: each target
-fails with the file it expects until that milestone is reached.
+Copy the local config once, then use `CONFIG=config/local.yml` for local runs:
+
+```bash
+cp config/contract-local.example.yml config/local.yml
+make help
+make inspect HOUR=2024-01-01-0 CONFIG=config/local.yml
+make measure-source CONFIG=config/local.yml
+make ingest HOUR=2024-01-01-0 CONFIG=config/local.yml
+make test
+make check
+```
+
+`inspect`, `contract-check`, `measure-source`, `capacity-check`, `ingest` and `test` are implemented.
+`bronze`, `silver`, `gold`, `all`, `exp`, `fault`, `up` and `down` still fail with the file they expect
+until their issue lands. `config/dev.yml` is the tracked default; `config/local.yml` is gitignored and
+may override it.
 
 ## Documentation rules
 

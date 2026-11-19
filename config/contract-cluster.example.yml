@@ -54,7 +54,7 @@
       7,
       30
     ],
-    "raw_budget_bytes": 17179869184,
+    "raw_budget_bytes": 68719476736,
     "evidence_path": "/workspace/results/issue_3_capacity.json"
   }
 }

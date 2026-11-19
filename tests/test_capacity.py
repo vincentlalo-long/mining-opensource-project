@@ -67,6 +67,8 @@ class CapacityTests(unittest.TestCase):
             self.assertEqual(latest["measured.total.events"]["value"], "24")
             self.assertEqual(latest["measured.total.cache_reused_files"]["value"], "24")
             self.assertEqual(latest["planning.7_days.raw_bytes"]["unit"], "bytes_assumption")
+            self.assertEqual(latest["planning.selected_days"]["value"], "30")
+            self.assertEqual(second["sample_range"], {"from": "2024-01-01-0", "to": "2024-01-01-23", "hours": 24})
             raw_path = root / "raw" / "2024-01-01-0.json.gz"
             original = raw_path.read_bytes()
             with raw_path.open("ab") as stream:

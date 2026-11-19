@@ -70,7 +70,7 @@ def write_csv(path, columns, rows):
     temporary = path.with_suffix(path.suffix + ".tmp")
     try:
         with temporary.open("w", newline="", encoding="utf-8") as stream:
-            writer = csv.DictWriter(stream, fieldnames=columns)
+            writer = csv.DictWriter(stream, fieldnames=columns, lineterminator="\n")
             writer.writeheader()
             writer.writerows(rows)
         temporary.replace(path)

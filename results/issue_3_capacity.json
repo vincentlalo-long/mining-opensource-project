@@ -1,9 +1,14 @@
 {
   "issue": "https://github.com/vincentlalo-long/mining-opensource-project/issues/3",
-  "run_id": "cbe6f6c3-e951-4043-9a81-e04cfbd81880",
+  "run_id": "3897b146-315a-4e48-9c97-15fe18358d9e",
   "config": "config/local.yml",
   "sample_from": "2024-01-01-0",
   "sample_to": "2024-01-01-23",
+  "sample_range": {
+    "from": "2024-01-01-0",
+    "to": "2024-01-01-23",
+    "hours": 24
+  },
   "manifest_path": "data/raw/inspection_manifest.csv",
   "experiments_path": "results/experiments.csv",
   "failed_hours": [],
@@ -12,7 +17,7 @@
   "planning_note": "planning.* rows are linear capacity assumptions based on this observed day; not benchmarks or guaranteed future volume. Compressed raw bytes only; curated storage and Spark processing cost are not measured.",
   "recommended_range": {
     "from": "2024-01-01-0",
-    "to": "2024-01-07-23",
+    "to": "2024-01-30-23",
     "basis": "Largest configured planning horizon fitting the assumed raw-only budget; verify curated storage and distributed processing separately before backfill."
   }
 }

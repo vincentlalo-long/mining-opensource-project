@@ -55,13 +55,13 @@ def measure_source(config_path, first, last):
     failures = []
     started = time.perf_counter()
     with output.open("a", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=EXPERIMENT_COLUMNS)
+        writer = csv.DictWriter(stream, fieldnames=EXPERIMENT_COLUMNS, lineterminator="\n")
         if not exists:
             writer.writeheader()
 
         def measure(metric, value, unit, source=source_range):
             writer.writerow(dict(zip(EXPERIMENT_COLUMNS, [
-                "EXP-001", run_id, recorded_at, Path(config_path).as_posix(),
+                "S0-SOURCE-001", run_id, recorded_at, Path(config_path).as_posix(),
                 source, metric, value, unit,
             ])))
             stream.flush()
@@ -110,6 +110,7 @@ def measure_source(config_path, first, last):
             "issue": "https://github.com/vincentlalo-long/mining-opensource-project/issues/3",
             "run_id": run_id, "config": Path(config_path).as_posix(),
             "sample_from": first, "sample_to": last,
+            "sample_range": {"from": first, "to": last, "hours": capacity["sample_hours"]},
             "manifest_path": config["inspection"]["manifest_path"],
             "experiments_path": output.as_posix(), "failed_hours": failures,
             "status": "incomplete" if failures else "complete",
@@ -146,7 +147,7 @@ def check_capacity(config_path):
     measured = [row for row in read_csv(config["inspection"]["experiments_path"], EXPERIMENT_COLUMNS)
                 if row["run_id"] == evidence["run_id"]]
     indexed = {(row["source_file"], row["metric"]): row for row in measured}
-    if len(indexed) != len(measured) or any(row["experiment_id"] != "EXP-001" for row in measured):
+    if len(indexed) != len(measured) or any(row["experiment_id"] != "S0-SOURCE-001" for row in measured):
         raise ValueError("Duplicate or misidentified daily measurements")
     manifest = read_manifest(config["inspection"]["manifest_path"])
     source_range = f"{config['source']['base_url'].rstrip('/')}/{evidence['sample_from']}..{evidence['sample_to']}"
