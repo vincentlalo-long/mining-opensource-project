@@ -86,10 +86,16 @@ make test
 make check
 ```
 
-`inspect`, `contract-check`, `measure-source`, `capacity-check`, `ingest`, `status` and `test` are implemented.
-`bronze`, `silver`, `gold`, `all`, `exp`, `fault`, `up` and `down` still fail with the file they expect
-until their issue lands. `config/dev.yml` is the tracked default; `config/local.yml` is gitignored and
-may override it.
+`inspect`, `contract-check`, `measure-source`, `capacity-check`, `ingest`, `status`, `doctor`, `up`,
+`down` and `test` are implemented. `bronze`, `silver`, `gold`, `all`, `exp` and `fault` still fail with
+the file they expect until their issue lands. `config/dev.yml` is the tracked default;
+`config/local.yml` is gitignored and may override it.
+
+`make up` needs Docker plus `k3d` and `kubectl`, creates the local `gh` cluster with one server and two
+agents, and starts MinIO, Spark, Trino and Superset inside it. It checks ports 9000/8080/8088, uploads and
+downloads the smoke hour, and writes `results/issue_2_smoke.json`; it needs about 4 GiB free memory.
+Run `make doctor` first, and `make down` to delete the cluster. Cluster secrets are generated on the
+first run and are not committed.
 
 ## Documentation rules
 

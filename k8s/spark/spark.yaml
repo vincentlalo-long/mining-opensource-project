@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-master
+  namespace: gh
+  labels:
+    app: spark-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-master
+  template:
+    metadata:
+      labels:
+        app: spark-master
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: spark-master
+          image: gh-spark:3.5.5
+          imagePullPolicy: IfNotPresent
+          command:
+            - /opt/spark/bin/spark-class
+            - org.apache.spark.deploy.master.Master
+            - --port
+            - "7077"
+            - --webui-port
+            - "8080"
+          ports:
+            - name: rpc
+              containerPort: 7077
+            - name: ui
+              containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: rpc
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-master
+  namespace: gh
+spec:
+  selector:
+    app: spark-master
+  ports:
+    - name: rpc
+      port: 7077
+      targetPort: rpc
+    - name: ui
+      port: 8080
+      targetPort: ui
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-worker
+  namespace: gh
+  labels:
+    app: spark-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-worker
+  template:
+    metadata:
+      labels:
+        app: spark-worker
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: spark-worker
+          image: gh-spark:3.5.5
+          imagePullPolicy: IfNotPresent
+          command:
+            - /opt/spark/bin/spark-class
+            - org.apache.spark.deploy.worker.Worker
+            - spark://spark-master:7077
+            - --webui-port
+            - "8081"
+            - --cores
+            - "2"
+            - --memory
+            - 768m
+          ports:
+            - name: webui
+              containerPort: 8081
+          readinessProbe:
+            tcpSocket:
+              port: webui
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+            limits:
+              cpu: "1"
+              memory: 1536Mi

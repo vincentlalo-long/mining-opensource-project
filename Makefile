@@ -14,6 +14,7 @@ RESUME  ?= 0
 FROM    ?= 2024-01-01-0
 TO      ?= 2024-01-01-23
 EXP     ?= EXP-001
+SMOKE_HOUR ?= 2024-01-01-0
 PY      ?= python3
 SPARK   ?= spark-submit
 KUBECTL ?= kubectl
@@ -25,7 +26,7 @@ define require
 	@[ -e $(1) ] || { printf 'not implemented yet: %s\n' '$(1)'; exit 1; }
 endef
 
-.PHONY: help status check test inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest test-status bronze silver gold all exp fault up down
+.PHONY: help status check test inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest test-status bronze silver gold all exp fault doctor up down
 
 help: ## list targets
 	@printf 'targets (CONFIG=%s):\n' '$(CONFIG)'
@@ -105,10 +106,11 @@ fault: ## kill one worker during processing, record recovery time
 	$(call require,src/gh_ecosystem/fault.py)
 	$(PY) -m gh_ecosystem.fault --config $(CONFIG)
 
-up: ## apply the cluster manifests (Spark, Trino, Superset)
-	$(call require,k8s/kustomization.yaml)
-	$(KUBECTL) apply -k k8s/
+doctor: ## check docker, k3d, kubectl, ports, disk, memory and config parity
+	$(PY) -m gh_ecosystem.platform --config $(CONFIG) doctor
 
-down: ## remove the cluster manifests
-	$(call require,k8s/kustomization.yaml)
-	$(KUBECTL) delete -k k8s/
+up: ## create k3d and run MinIO/Spark/Trino/Superset smoke checks
+	$(PY) -m gh_ecosystem.platform --config $(CONFIG) up --hour $(SMOKE_HOUR)
+
+down: ## delete the local k3d cluster
+	$(PY) -m gh_ecosystem.platform --config $(CONFIG) down
