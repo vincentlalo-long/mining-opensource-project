@@ -81,11 +81,12 @@ make help
 make inspect HOUR=2024-01-01-0 CONFIG=config/local.yml
 make measure-source CONFIG=config/local.yml
 make ingest HOUR=2024-01-01-0 CONFIG=config/local.yml
+make status
 make test
 make check
 ```
 
-`inspect`, `contract-check`, `measure-source`, `capacity-check`, `ingest` and `test` are implemented.
+`inspect`, `contract-check`, `measure-source`, `capacity-check`, `ingest`, `status` and `test` are implemented.
 `bronze`, `silver`, `gold`, `all`, `exp`, `fault`, `up` and `down` still fail with the file they expect
 until their issue lands. `config/dev.yml` is the tracked default; `config/local.yml` is gitignored and
 may override it.

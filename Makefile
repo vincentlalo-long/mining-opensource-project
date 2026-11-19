@@ -25,13 +25,16 @@ define require
 	@[ -e $(1) ] || { printf 'not implemented yet: %s\n' '$(1)'; exit 1; }
 endef
 
-.PHONY: help check test inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest bronze silver gold all exp fault up down
+.PHONY: help status check test inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest test-status bronze silver gold all exp fault up down
 
 help: ## list targets
 	@printf 'targets (CONFIG=%s):\n' '$(CONFIG)'
 	@grep -hE '^[a-z][a-z-]*:.*## ' $(MAKEFILE_LIST) | sed -E 's/:.*## /\t- /'
 
-check: ## markdown allowlist + no staged data; run before finishing any task
+status: ## show S0-S5 artifact status (JSON=1 for JSON)
+	$(PY) -m gh_ecosystem.status $(if $(filter 1,$(JSON)),--json,)
+
+check: ## markdown allowlist, no data files and results header
 	@git ls-files --cached --others --exclude-standard '*.md' \
 	| grep -vxE '(README|AGENTS)\.md|docs/(decisions|report)\.md' \
 	&& { printf 'FAIL: markdown outside the allowlist (see AGENTS.md)\n'; exit 1; } \
@@ -39,8 +42,12 @@ check: ## markdown allowlist + no staged data; run before finishing any task
 	@git ls-files --cached | grep -E '\.(json\.gz|parquet|avro|orc|zip)$$' \
 	&& { printf 'FAIL: data file staged/tracked - see .gitignore\n'; exit 1; } \
 	|| printf 'OK: no data files tracked\n'
+	@git ls-files --others | grep -vE '^data/' | grep -E '\.(json\.gz|parquet|avro|orc|zip)$$' \
+	&& { printf 'FAIL: data file outside data/ is untracked - see .gitignore\n'; exit 1; } \
+	|| printf 'OK: no untracked data files outside data/\n'
+	@$(PY) -m gh_ecosystem.status --check-results
 
-test: test-contracts test-capacity test-ingest ## run all network-free tests
+test: test-contracts test-capacity test-ingest test-status ## run all network-free tests
 
 inspect: ## inspect one GH Archive hour and record its schema
 	$(call require,src/gh_ecosystem/inspect.py)
@@ -70,6 +77,9 @@ ingest: ## ingest one raw hour, or recheck/resume manifest hours with RESUME=1
 
 test-ingest: ## exercise ingestion, retries and resume without a network dependency
 	$(PY) -m unittest discover -s tests -p 'test_ingest.py' -v
+
+test-status: ## exercise the status table and results-header check
+	$(PY) -m unittest discover -s tests -p 'test_status.py' -v
 
 bronze: ## raw .json.gz -> bronze.events, payload kept as string
 	$(call require,jobs/build_bronze.py)
