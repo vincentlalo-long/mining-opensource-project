@@ -78,3 +78,9 @@ Rejected: Giữ 7 ngày vì budget 16 GiB; coi 7 ngày là target; coi mẫu 24 
 Decision: Bảo vệ `main` bằng branch protection: bắt buộc PR, 1 approval, check `ci`, dismiss stale approval, resolve conversation, chặn force-push và xóa branch. Owner admin được bypass để unblock; collaborator write phải qua review. Không dùng CODEOWNERS, signed commits hay linear history ở giai đoạn này. Quy trình merge này thay D-007.
 Why: Ba PR gần đây merge không có review, issue vẫn open; cần một mức review tối thiểu nhưng không làm nhóm 3 người bị kẹt khi chỉ một người online.
 Rejected: Để `main` unprotected; bắt buộc enforce admin tuyệt đối hoặc thêm CODEOWNERS/signed commits quá nặng cho bài tập nhóm.
+
+## D-012 — Nền tảng local k3d và phạm vi smoke test (2026-11-20)
+
+Decision: Dùng k3d một server + hai agent; ảnh ghim `gh-spark:3.5.5`, `trinodb/trino:484`, `apache/superset:4.1.2` và MinIO `bitnamilegacy/minio:2025.7.23-debian-12-r5`. `make up` tạo bucket raw/bronze/silver/gold, đẩy một giờ mẫu lên MinIO, chạy Spark đọc S3A, kiểm Trino `tpch.tiny.nation` và Superset `/health`, rồi ghi `results/issue_2_smoke.json`.
+Why: Cần một môi trường Kubernetes tái lập được trên máy 8 GiB; Trino `tpch` và Superset SQLite đủ để chứng minh serving trước khi #4 thêm catalog Iceberg/Postgres. Ảnh chính thức của MinIO không tải được nên dùng tag legacy đã ghim.
+Rejected: Docker Compose; chạy MinIO/Trino/Superset bằng binary trên host; dựng Postgres/Iceberg catalog trong #2; dùng `hostNetwork` hoặc port-forward thay cho manifest.

@@ -1,0 +1,33 @@
+{
+  "issue": "https://github.com/vincentlalo-long/mining-opensource-project/issues/2",
+  "run_id": "f1c2aa94-adff-4022-a0f4-2b6122b3a8e3",
+  "recorded_at": "2026-11-19T17:50:27.514228Z",
+  "cluster": "gh",
+  "namespace": "gh",
+  "config": "config/dev.yml",
+  "smoke_hour": "2024-01-01-0",
+  "nodes": [
+    {
+      "name": "k3d-gh-agent-0",
+      "ready": true
+    },
+    {
+      "name": "k3d-gh-agent-1",
+      "ready": true
+    },
+    {
+      "name": "k3d-gh-server-0",
+      "ready": true
+    }
+  ],
+  "buckets": [
+    "bronze",
+    "gold",
+    "raw",
+    "silver"
+  ],
+  "spark_events": 153619,
+  "trino_nation_rows": 25,
+  "superset_health": "OK",
+  "status": "complete"
+}
