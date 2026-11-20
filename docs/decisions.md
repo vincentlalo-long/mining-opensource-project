@@ -84,3 +84,9 @@ Rejected: Để `main` unprotected; bắt buộc enforce admin tuyệt đối ho
 Decision: Dùng k3d một server + hai agent; ảnh ghim `gh-spark:3.5.5`, `trinodb/trino:484`, `apache/superset:4.1.2` và MinIO `bitnamilegacy/minio:2025.7.23-debian-12-r5`. `make up` tạo bucket raw/bronze/silver/gold, đẩy một giờ mẫu lên MinIO, chạy Spark đọc S3A, kiểm Trino `tpch.tiny.nation` và Superset `/health`, rồi ghi `results/issue_2_smoke.json`.
 Why: Cần một môi trường Kubernetes tái lập được trên máy 8 GiB; Trino `tpch` và Superset SQLite đủ để chứng minh serving trước khi #4 thêm catalog Iceberg/Postgres. Ảnh chính thức của MinIO không tải được nên dùng tag legacy đã ghim.
 Rejected: Docker Compose; chạy MinIO/Trino/Superset bằng binary trên host; dựng Postgres/Iceberg catalog trong #2; dùng `hostNetwork` hoặc port-forward thay cho manifest.
+
+## D-013 — Triển khai walking skeleton cho bronze, silver và gold (2026-11-20)
+
+Decision: Triển khai luồng walking skeleton mỏng với `jobs/build_bronze.py`, `jobs/build_silver.py`, `jobs/build_gold.py` và logic dùng chung tại `src/gh_ecosystem/`. Bronze giữ payload string và trích trường chung (`bronze.events`); Silver dedup toàn cục theo `event_id` (`silver.events`) và trích typed fields cho `PushEvent` (`silver.push_events`); Gold tính metric đếm sự kiện theo ngày và loại (`gold.event_volume_daily`). Tất cả partition theo `event_date` UTC.
+Why: Hoàn thành walking skeleton để kiểm chứng dữ liệu 1 giờ (153.619 events, 110.370 PushEvents) chạy được cả ở chế độ local và phân tán; sẵn sàng kết nối Iceberg catalog và Trino/Superset dashboard.
+Rejected: Nhúng trực tiếp toàn bộ schema của tất cả loại event trong S1; hardcode đường dẫn; bỏ qua deduplication ở silver.
