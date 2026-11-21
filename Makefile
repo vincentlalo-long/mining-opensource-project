@@ -26,7 +26,7 @@ define require
 	@[ -e $(1) ] || { printf 'not implemented yet: %s\n' '$(1)'; exit 1; }
 endef
 
-.PHONY: help status check test inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest test-status bronze silver gold all exp fault doctor up down
+.PHONY: help status check test inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest test-status test-bronze test-silver test-gold bronze silver gold all exp fault doctor up down
 
 help: ## list targets
 	@printf 'targets (CONFIG=%s):\n' '$(CONFIG)'
@@ -48,7 +48,7 @@ check: ## markdown allowlist, no data files and results header
 	|| printf 'OK: no untracked data files outside data/\n'
 	@$(PY) -m gh_ecosystem.status --check-results
 
-test: test-contracts test-capacity test-ingest test-status ## run all network-free tests
+test: test-contracts test-capacity test-ingest test-status test-bronze test-silver test-gold ## run all network-free tests
 
 inspect: ## inspect one GH Archive hour and record its schema
 	$(call require,src/gh_ecosystem/inspect.py)
@@ -82,17 +82,26 @@ test-ingest: ## exercise ingestion, retries and resume without a network depende
 test-status: ## exercise the status table and results-header check
 	$(PY) -m unittest discover -s tests -p 'test_status.py' -v
 
+test-bronze: ## exercise bronze projection, partitioning and payload retention
+	$(PY) -m unittest discover -s tests -p 'test_bronze.py' -v
+
+test-silver: ## exercise silver deduplication and typed PushEvent extraction
+	$(PY) -m unittest discover -s tests -p 'test_silver.py' -v
+
+test-gold: ## exercise gold daily volume aggregation and metrics
+	$(PY) -m unittest discover -s tests -p 'test_gold.py' -v
+
 bronze: ## raw .json.gz -> bronze.events, payload kept as string
 	$(call require,jobs/build_bronze.py)
-	$(SPARK) jobs/build_bronze.py --config $(CONFIG)
+	$(SPARK) jobs/build_bronze.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
 
 silver: ## bronze -> silver typed tables, deduplicated
 	$(call require,jobs/build_silver.py)
-	$(SPARK) jobs/build_silver.py --config $(CONFIG)
+	$(SPARK) jobs/build_silver.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
 
 gold: ## silver -> gold metric tables for the dashboard
 	$(call require,jobs/build_gold.py)
-	$(SPARK) jobs/build_gold.py --config $(CONFIG)
+	$(SPARK) jobs/build_gold.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
 
 all: ## run ingest -> bronze -> silver -> gold for the FROM..TO hour range
 	$(call require,src/gh_ecosystem/pipeline.py)

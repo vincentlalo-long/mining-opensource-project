@@ -84,3 +84,9 @@ Rejected: Để `main` unprotected; bắt buộc enforce admin tuyệt đối ho
 Decision: Dùng k3d một server + hai agent; ảnh ghim `gh-spark:3.5.5`, `trinodb/trino:484`, `apache/superset:4.1.2` và MinIO `bitnamilegacy/minio:2025.7.23-debian-12-r5`. `make up` tạo bucket raw/bronze/silver/gold, đẩy một giờ mẫu lên MinIO, chạy Spark đọc S3A, kiểm Trino `tpch.tiny.nation` và Superset `/health`, rồi ghi `results/issue_2_smoke.json`.
 Why: Cần một môi trường Kubernetes tái lập được trên máy 8 GiB; Trino `tpch` và Superset SQLite đủ để chứng minh serving trước khi #4 thêm catalog Iceberg/Postgres. Ảnh chính thức của MinIO không tải được nên dùng tag legacy đã ghim.
 Rejected: Docker Compose; chạy MinIO/Trino/Superset bằng binary trên host; dựng Postgres/Iceberg catalog trong #2; dùng `hostNetwork` hoặc port-forward thay cho manifest.
+
+## D-013 — Walking skeleton lát cắt dữ liệu cục bộ cho S1 (2026-11-20)
+
+Decision: Triển khai lát cắt walking skeleton cục bộ định dạng JSONL qua `jobs/build_bronze.py`, `jobs/build_silver.py`, `jobs/build_gold.py` và logic tại `src/gh_ecosystem/`. Bronze trích trường chung và giữ payload string (`bronze.events`); Silver dedup toàn cục theo `event_id` với tie-break canonical hash và trích typed fields cho `PushEvent` (`silver.push_events`); Gold tính số lượng sự kiện theo ngày (`gold.event_volume_daily`). Tất cả partition theo `event_date` UTC từ `created_at`. Đường dẫn và bucket lấy động từ cấu hình `storage.raw_dir` và `storage.buckets`. Tạm thời thay thế D-004 cho lát cắt cục bộ S1; định dạng Parquet/Iceberg và serving trên k3d (Trino/Superset) là bước bàn giao tiếp theo cho C.
+Why: Hoàn thành kiểm chứng luồng dữ liệu 1 giờ (153.619 bronze events, 110.370 push events, 15 dòng metric gold) độc lập với cụm phân tán và không phụ thuộc Java/Hadoop cục bộ.
+Rejected: Bỏ qua deduplication; hardcode đường dẫn dữ liệu; tự động ép kiểu dữ liệu lỗi; tự nhận hoàn thành toàn bộ serving/cluster của #4 trong lát cắt này.
