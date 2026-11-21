@@ -93,15 +93,15 @@ test-gold: ## exercise gold daily volume aggregation and metrics
 
 bronze: ## raw .json.gz -> bronze.events, payload kept as string
 	$(call require,jobs/build_bronze.py)
-	$(SPARK) jobs/build_bronze.py --config $(CONFIG)
+	$(SPARK) jobs/build_bronze.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
 
 silver: ## bronze -> silver typed tables, deduplicated
 	$(call require,jobs/build_silver.py)
-	$(SPARK) jobs/build_silver.py --config $(CONFIG)
+	$(SPARK) jobs/build_silver.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
 
 gold: ## silver -> gold metric tables for the dashboard
 	$(call require,jobs/build_gold.py)
-	$(SPARK) jobs/build_gold.py --config $(CONFIG)
+	$(SPARK) jobs/build_gold.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
 
 all: ## run ingest -> bronze -> silver -> gold for the FROM..TO hour range
 	$(call require,src/gh_ecosystem/pipeline.py)

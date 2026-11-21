@@ -3,7 +3,6 @@
 import argparse
 import gzip
 import json
-import os
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,78 +25,83 @@ def build_bronze(config_path, hour=None):
     contract_path = config["inspection"]["contract_path"]
     contract = load_config(ROOT / contract_path if not Path(contract_path).is_absolute() else contract_path)
 
-    raw_dir = ROOT / config["storage"]["raw_dir"]
-    manifest_path = ROOT / config["inspection"]["manifest_path"]
-    manifest = read_manifest(manifest_path)
+    raw_dir = Path(config["storage"]["raw_dir"])
+    raw_dir_resolved = raw_dir if raw_dir.is_absolute() else ROOT / raw_dir
+    manifest_path = Path(config["inspection"]["manifest_path"])
+    manifest_resolved = manifest_path if manifest_path.is_absolute() else ROOT / manifest_path
+    manifest = read_manifest(manifest_resolved)
 
     hours_to_process = []
     if hour:
         parse_hour(hour)
         hours_to_process.append(hour)
     else:
-        for h, row in sorted(manifest.items()):
+        for h, row in manifest.items():
             if row.get("status") == "ok":
-                hours_to_process.append(h)
-
-    if not hours_to_process:
-        # Check raw_dir directly if manifest has no entries
-        if raw_dir.exists():
-            for file in sorted(raw_dir.glob("*.json.gz")):
-                hour_name = file.name.replace(".json.gz", "")
                 try:
-                    parse_hour(hour_name)
-                    hours_to_process.append(hour_name)
+                    parse_hour(h)
+                    hours_to_process.append(h)
                 except ValueError:
                     continue
 
-    if not hours_to_process:
-        raise ValueError("No raw archives found to process into bronze")
+    if not hours_to_process and raw_dir_resolved.exists():
+        for file in raw_dir_resolved.glob("*.json.gz"):
+            hour_name = file.name.replace(".json.gz", "")
+            try:
+                parse_hour(hour_name)
+                hours_to_process.append(hour_name)
+            except ValueError:
+                continue
 
-    if "bronze_dir" in config["storage"]:
-        bronze_dir = Path(config["storage"]["bronze_dir"])
-    else:
-        bronze_dir = ROOT / "data" / config["storage"]["buckets"]["bronze"] / "events"
+    if not hours_to_process:
+        raise ValueError(f"No raw archives found to process into bronze at {raw_dir}")
+
+    # Canonical chronological sort by parsed UTC datetime
+    hours_to_process.sort(key=parse_hour)
+
+    storage_root = raw_dir_resolved.parent
+    bronze_dir = storage_root / config["storage"]["buckets"]["bronze"] / "events"
     bronze_dir.mkdir(parents=True, exist_ok=True)
 
     total_events = 0
     partition_counts = defaultdict(int)
     partition_writers = {}
-    partition_files = {}
-
     now_utc = utc_now()
 
     try:
         for h in hours_to_process:
-            file_path = raw_dir / f"{h}.json.gz"
+            file_path = raw_dir_resolved / f"{h}.json.gz"
             if not file_path.exists():
                 raise FileNotFoundError(f"Raw archive file missing: {file_path}")
 
             manifest_entry = manifest.get(h, {})
             ingested_at = manifest_entry.get("ingested_at") or now_utc
-            source_file = f"data/raw/{h}.json.gz"
+            source_file = manifest_entry.get("local_path") or str(raw_dir / f"{h}.json.gz").replace("\\", "/")
 
+            line_number = 0
             with gzip.open(file_path, "rb") as stream:
                 for line in stream:
+                    line_number += 1
                     line = line.strip()
                     if not line:
                         continue
                     try:
                         raw_event = json.loads(line)
                         if not isinstance(raw_event, dict):
-                            continue
+                            raise ValueError("Event line must be a JSON object")
                         record = bronze_projection(raw_event, source_file, ingested_at, contract)
-                    except (ValueError, TypeError, KeyError):
-                        continue
+                    except (ValueError, TypeError, KeyError, json.JSONDecodeError) as error:
+                        raise ValueError(f"Contract violation at line {line_number} in {file_path}: {error}") from error
 
                     event_date = extract_event_date(record["created_at"])
-                    if event_date not in partition_writers:
+                    writer_key = (event_date, h)
+                    if writer_key not in partition_writers:
                         part_dir = bronze_dir / f"event_date={event_date}"
                         part_dir.mkdir(parents=True, exist_ok=True)
                         out_file = part_dir / f"events_{h}.jsonl"
-                        partition_files[event_date] = out_file
-                        partition_writers[event_date] = out_file.open("w", encoding="utf-8")
+                        partition_writers[writer_key] = out_file.open("w", encoding="utf-8")
 
-                    partition_writers[event_date].write(json.dumps(record, ensure_ascii=False) + "\n")
+                    partition_writers[writer_key].write(json.dumps(record, ensure_ascii=False) + "\n")
                     partition_counts[event_date] += 1
                     total_events += 1
     finally:
