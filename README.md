@@ -86,9 +86,9 @@ make test
 make check
 ```
 
-`inspect`, `contract-check`, `measure-source`, `capacity-check`, `ingest`, `status`, `doctor`, `up`,
-`down` and `test` are implemented. `bronze`, `silver`, `gold`, `all`, `exp` and `fault` still fail with
-the file they expect until their issue lands. `config/dev.yml` is the tracked default;
+`inspect`, `contract-check`, `measure-source`, `capacity-check`, `ingest`, `bronze`, `silver`, `gold`,
+`serve`, `status`, `doctor`, `up`, `down` and `test` are implemented. `all`, `exp` and `fault` still
+fail with the file they expect until their issue lands. `config/dev.yml` is the tracked default;
 `config/local.yml` is gitignored and may override it.
 
 `make up` needs Docker plus `k3d` and `kubectl`, creates the local `gh` cluster with one server and two

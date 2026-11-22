@@ -24,6 +24,21 @@ data:
     node.data-dir=/data/trino
   tpch.properties: |
     connector.name=tpch
+  iceberg.properties: |
+    connector.name=iceberg
+    iceberg.catalog.type=jdbc
+    iceberg.jdbc-catalog.catalog-name=gh_ecosystem
+    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://postgres:5432/iceberg_catalog
+    iceberg.jdbc-catalog.connection-user=${ENV:ICEBERG_JDBC_USER}
+    iceberg.jdbc-catalog.connection-password=${ENV:ICEBERG_JDBC_PASSWORD}
+    iceberg.jdbc-catalog.default-warehouse-dir=s3://bronze/warehouse
+    fs.s3.enabled=true
+    s3.endpoint=http://minio:9000
+    s3.region=us-east-1
+    s3.path-style-access=true
+    s3.aws-access-key=${ENV:MINIO_ROOT_USER}
+    s3.aws-secret-key=${ENV:MINIO_ROOT_PASSWORD}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -52,6 +67,27 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          env:
+            - name: ICEBERG_JDBC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: ICEBERG_JDBC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: MINIO_ROOT_PASSWORD
           volumeMounts:
             - name: config
               mountPath: /etc/trino/config.properties
@@ -65,6 +101,9 @@ spec:
             - name: config
               mountPath: /etc/trino/catalog/tpch.properties
               subPath: tpch.properties
+            - name: config
+              mountPath: /etc/trino/catalog/iceberg.properties
+              subPath: iceberg.properties
             - name: data
               mountPath: /data/trino
           readinessProbe:
