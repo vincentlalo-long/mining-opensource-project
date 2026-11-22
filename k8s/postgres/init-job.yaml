@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-init
+  namespace: gh
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: postgres-init
+    spec:
+      enableServiceLinks: false
+      restartPolicy: OnFailure
+      containers:
+        - name: psql
+          image: postgres:16-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 \
+                -h postgres -U "$POSTGRES_USER" -d iceberg_catalog <<'SQL'
+              CREATE TABLE IF NOT EXISTS iceberg_namespace_properties (
+                  catalog_name VARCHAR(255) NOT NULL,
+                  namespace VARCHAR(255) NOT NULL,
+                  property_key VARCHAR(5500),
+                  property_value VARCHAR(5500),
+                  PRIMARY KEY (catalog_name, namespace, property_key)
+              );
+              CREATE TABLE IF NOT EXISTS iceberg_tables (
+                  catalog_name VARCHAR(255) NOT NULL,
+                  table_namespace VARCHAR(255) NOT NULL,
+                  table_name VARCHAR(255) NOT NULL,
+                  metadata_location VARCHAR(5500),
+                  previous_metadata_location VARCHAR(5500),
+                  PRIMARY KEY (catalog_name, table_namespace, table_name)
+              );
+              SQL
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

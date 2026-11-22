@@ -27,7 +27,7 @@ define require
 	@[ -e $(1) ] || { printf 'not implemented yet: %s\n' '$(1)'; exit 1; }
 endef
 
-.PHONY: help status check test inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest test-status test-bronze test-silver test-gold bronze silver gold all exp fault doctor up down
+.PHONY: help status check test inspect contract-check test-contracts measure-source capacity-check test-capacity ingest test-ingest test-status test-bronze test-silver test-gold test-serving bronze silver gold serve all exp fault doctor up down
 
 help: ## list targets
 	@printf 'targets (CONFIG=%s):\n' '$(CONFIG)'
@@ -49,7 +49,7 @@ check: ## markdown allowlist, no data files and results header
 	|| printf 'OK: no untracked data files outside data/\n'
 	@$(PY) -m gh_ecosystem.status --check-results
 
-test: test-contracts test-capacity test-ingest test-status test-bronze test-silver test-gold ## run all network-free tests
+test: test-contracts test-capacity test-ingest test-status test-bronze test-silver test-gold test-serving ## run all network-free tests
 
 inspect: ## inspect one GH Archive hour and record its schema
 	$(call require,src/gh_ecosystem/inspect.py)
@@ -92,6 +92,9 @@ test-silver: ## exercise silver deduplication and typed PushEvent extraction
 test-gold: ## exercise gold daily volume aggregation and metrics
 	$(PY) -m unittest discover -s tests -p 'test_gold.py' -v
 
+test-serving: ## exercise Trino/Superset serving orchestration without cluster access
+	$(PY) -m unittest discover -s tests -p 'test_serving.py' -v
+
 bronze: ## raw .json.gz -> bronze.events; SCOPE_HOUR=... for one UTC hour
 	$(call require,jobs/build_bronze.py)
 	$(SPARK) jobs/build_bronze.py --config $(CONFIG) $(if $(SCOPE_HOUR),--hour $(SCOPE_HOUR),)
@@ -103,6 +106,10 @@ silver: ## bronze -> silver typed tables, always deduplicated globally
 gold: ## silver -> gold metric tables, one row per date and event type
 	$(call require,jobs/build_gold.py)
 	$(SPARK) jobs/build_gold.py --config $(CONFIG)
+
+serve: ## load gold snapshot into Trino Iceberg and create the Superset chart
+	$(call require,src/gh_ecosystem/serving.py)
+	$(PY) -m gh_ecosystem.serving --config $(CONFIG) --hour $(SMOKE_HOUR)
 
 all: ## run ingest -> bronze -> silver -> gold for the FROM..TO hour range
 	$(call require,src/gh_ecosystem/pipeline.py)

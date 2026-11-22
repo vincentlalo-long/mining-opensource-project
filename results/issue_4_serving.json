@@ -1,0 +1,40 @@
+{
+  "issue": "https://github.com/vincentlalo-long/mining-opensource-project/issues/4",
+  "run_id": "80226386-965b-48ee-94a0-b4fbfce6ad1c",
+  "recorded_at": "2026-11-22T12:24:01.706728Z",
+  "config": "config/local.yml",
+  "source_hour": "2024-01-01-0",
+  "gold_file": "data/gold/event_volume_daily/event_date=2024-01-01/volume.jsonl",
+  "gold_rows": 15,
+  "gold_event_count": 153619,
+  "trino": {
+    "catalog": "iceberg",
+    "schema": "gold",
+    "table": "event_volume_daily",
+    "rows": 15,
+    "event_count": 153619,
+    "dates": 1
+  },
+  "superset": {
+    "database_id": 1,
+    "dataset_id": 1,
+    "chart_id": 1,
+    "chart_url": "http://localhost:8088/explore/?slice_id=1",
+    "chart_rows": 15,
+    "chart_sample": [
+      {
+        "event_type": "PushEvent",
+        "Event count": 110370
+      },
+      {
+        "event_type": "CreateEvent",
+        "Event count": 12107
+      },
+      {
+        "event_type": "PullRequestEvent",
+        "Event count": 9613
+      }
+    ]
+  },
+  "status": "complete"
+}

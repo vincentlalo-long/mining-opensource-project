@@ -9,6 +9,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CLUSTER = "gh"
 NAMESPACE = "gh"
 SPARK_IMAGE = "gh-spark:3.5.5"
+SUPERSET_IMAGE = "gh-superset:4.1.2"
 DEFAULT_HOUR = "2024-01-01-0"
 REQUIRED_PORTS = (9000, 8080, 8088)
 MIN_DISK_BYTES = 10 * 1024**3
@@ -154,8 +156,7 @@ def upload_smoke_fixture(hour, config):
         run([sys.executable, "-m", "gh_ecosystem.ingest", "--hour", hour, "--config", str(config)])
     pod = kubectl("get", "pod", "-l", "app=minio", "-o", "jsonpath={.items[0].metadata.name}",
                   capture=True).stdout.strip()
-    run(["kubectl", "-n", NAMESPACE, "exec", "-i", pod, "--", "sh", "-c", f"cat > /tmp/{hour}.json.gz"],
-        input_bytes=raw.read_bytes())
+    run(["kubectl", "-n", NAMESPACE, "cp", str(raw), f"{pod}:/tmp/{hour}.json.gz"])
     kubectl("exec", pod, "--", "sh", "-c",
             f'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && '
             f'mc cp /tmp/{hour}.json.gz local/raw/{hour}.json.gz')
@@ -195,6 +196,28 @@ def trino_count():
     return int(numbers[-1])
 
 
+def _trino_iceberg_probe():
+    for _ in range(15):
+        probe = kubectl("exec", "deploy/trino", "--", "trino", "--execute",
+                        "SHOW SCHEMAS FROM iceberg", check=False, capture=True)
+        detail = (probe.stderr or probe.stdout or "")
+        if probe.returncode == 0 or "still initializing" not in detail:
+            return probe
+        time.sleep(2)
+    return probe
+
+
+def ensure_trino_iceberg_ready():
+    probe = _trino_iceberg_probe()
+    if probe.returncode != 0:
+        kubectl("rollout", "restart", "deployment/trino")
+        wait_rollout("trino", "300s")
+        probe = _trino_iceberg_probe()
+        if probe.returncode != 0:
+            detail = (probe.stderr or probe.stdout or "").strip()
+            raise CheckError(f"Trino iceberg catalog probe failed after restart:\n{detail}")
+
+
 def superset_health():
     output = kubectl("exec", "deploy/superset", "--", "python", "-c",
                      "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8088/health', timeout=10).read().decode())",
@@ -222,6 +245,8 @@ def up(config, hour):
         run(["k3d", "cluster", "create", "--config", str(ROOT / "k8s/k3d-config.yaml")])
     run(["docker", "build", "-t", SPARK_IMAGE, "-f", str(ROOT / "k8s/spark/Dockerfile"), str(ROOT / "k8s/spark")])
     run(["k3d", "image", "import", SPARK_IMAGE, "-c", CLUSTER])
+    run(["docker", "build", "-t", SUPERSET_IMAGE, "-f", str(ROOT / "k8s/superset/Dockerfile"), str(ROOT / "k8s/superset")])
+    run(["k3d", "image", "import", SUPERSET_IMAGE, "-c", CLUSTER])
 
     run(["kubectl", "apply", "-f", str(ROOT / "k8s/namespace.yaml")])
     ensure_secret("minio-credentials", {
@@ -234,11 +259,22 @@ def up(config, hour):
     run(["kubectl", "-n", NAMESPACE, "apply", "-f", str(ROOT / "k8s/minio/init-buckets-job.yaml")])
     wait_job("minio-init")
 
+    ensure_secret("postgres-credentials", {
+        "POSTGRES_USER": os.environ.get("POSTGRES_USER", "iceberg"),
+        "POSTGRES_PASSWORD": os.environ.get("POSTGRES_PASSWORD", secrets.token_urlsafe(18)),
+    })
+    run(["kubectl", "-n", NAMESPACE, "apply", "-f", str(ROOT / "k8s/postgres/postgres.yaml")])
+    wait_rollout("postgres")
+    kubectl("delete", "job", "postgres-init", "--ignore-not-found=true")
+    run(["kubectl", "-n", NAMESPACE, "apply", "-f", str(ROOT / "k8s/postgres/init-job.yaml")])
+    wait_job("postgres-init")
+
     run(["kubectl", "-n", NAMESPACE, "apply", "-f", str(ROOT / "k8s/spark/spark.yaml")])
     wait_rollout("spark-master")
     wait_rollout("spark-worker")
     run(["kubectl", "-n", NAMESPACE, "apply", "-f", str(ROOT / "k8s/trino/trino.yaml")])
     wait_rollout("trino", "300s")
+    ensure_trino_iceberg_ready()
     ensure_secret("superset-secret", {
         "SUPERSET_SECRET_KEY": os.environ.get("SUPERSET_SECRET_KEY", secrets.token_urlsafe(32)),
         "SUPERSET_ADMIN_PASSWORD": os.environ.get("SUPERSET_ADMIN_PASSWORD", secrets.token_urlsafe(18)),

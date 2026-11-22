@@ -31,7 +31,8 @@ spec:
         fsGroup: 1000
       initContainers:
         - name: init
-          image: apache/superset:4.1.2
+          image: gh-superset:4.1.2
+          imagePullPolicy: IfNotPresent
           command: ["/bin/bash", "-c"]
           args:
             - |
@@ -42,7 +43,8 @@ spec:
                 --firstname Admin \
                 --lastname User \
                 --email admin@example.com \
-                --password "$SUPERSET_ADMIN_PASSWORD" || true
+                --password "$SUPERSET_ADMIN_PASSWORD" || \
+                superset fab reset-password --username admin --password "$SUPERSET_ADMIN_PASSWORD"
               superset init
           env:
             - name: SUPERSET_SECRET_KEY
@@ -67,13 +69,19 @@ spec:
               memory: 1Gi
       containers:
         - name: superset
-          image: apache/superset:4.1.2
+          image: gh-superset:4.1.2
+          imagePullPolicy: IfNotPresent
           env:
             - name: SUPERSET_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: superset-secret
                   key: SUPERSET_SECRET_KEY
+            - name: SUPERSET_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secret
+                  key: SUPERSET_ADMIN_PASSWORD
             - name: SUPERSET_PORT
               value: "8088"
           ports:
