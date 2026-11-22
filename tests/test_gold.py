@@ -66,6 +66,56 @@ class GoldTests(unittest.TestCase):
             self.assertEqual(len(lines), 2)
             self.assertFalse((temp_path / "data" / "gold" / "event_volume_daily" / "event_date=2024-01-01" / "volume.csv").exists())
 
+    def test_build_gold_rebuilds_all_dates_and_removes_stale(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            silver_events = temp_path / "data" / "silver" / "events"
+            day1 = silver_events / "event_date=2024-01-01"
+            day2 = silver_events / "event_date=2024-01-02"
+            day1.mkdir(parents=True)
+            day2.mkdir(parents=True)
+
+            day1_events = [
+                {"event_id": "1", "created_at": "2024-01-01T10:00:00Z", "event_type": "PushEvent"},
+                {"event_id": "2", "created_at": "2024-01-01T11:00:00Z", "event_type": "PushEvent"},
+                {"event_id": "3", "created_at": "2024-01-01T12:00:00Z", "event_type": "WatchEvent"},
+            ]
+            day2_events = [
+                {"event_id": "4", "created_at": "2024-01-02T10:00:00Z", "event_type": "PushEvent"},
+            ]
+            (day1 / "events.jsonl").write_text(
+                "\n".join(json.dumps(e) for e in day1_events) + "\n", encoding="utf-8"
+            )
+            (day2 / "events.jsonl").write_text(
+                "\n".join(json.dumps(e) for e in day2_events) + "\n", encoding="utf-8"
+            )
+            # Legacy per-hour file must be ignored as gold input
+            (day1 / "events_2024-01-01-0.jsonl").write_text(
+                json.dumps(day1_events[0]) + "\n", encoding="utf-8"
+            )
+
+            config_path = temp_path / "config.json"
+            config_data = {
+                "storage": {
+                    "raw_dir": str(temp_path / "data" / "raw"),
+                    "buckets": {"silver": "silver", "gold": "gold"},
+                }
+            }
+            config_path.write_text(json.dumps(config_data), encoding="utf-8")
+
+            gold_base = temp_path / "data" / "gold" / "event_volume_daily"
+            (gold_base / "event_date=2023-12-31").mkdir(parents=True)
+            (gold_base / "event_date=2023-12-31" / "volume.jsonl").write_text("", encoding="utf-8")
+
+            res = build_gold(config_path)
+            self.assertEqual(res["total_metric_rows"], 3)
+
+            day1_volume = gold_base / "event_date=2024-01-01" / "volume.jsonl"
+            day2_volume = gold_base / "event_date=2024-01-02" / "volume.jsonl"
+            self.assertEqual(len(day1_volume.read_text(encoding="utf-8").splitlines()), 2)
+            self.assertEqual(len(day2_volume.read_text(encoding="utf-8").splitlines()), 1)
+            self.assertFalse((gold_base / "event_date=2023-12-31").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

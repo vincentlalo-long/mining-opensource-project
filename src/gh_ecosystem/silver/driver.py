@@ -71,8 +71,24 @@ def deduplicate_records(records):
     return deduped, conflicts
 
 
-def build_silver(config_path, hour=None):
-    """Build silver.events and silver.push_events from bronze zone with idempotent partition replacement."""
+def replace_partitions(base, partitions, filename):
+    """Replace table partitions with a full snapshot, removing stale or legacy files."""
+    affected = {f"event_date={event_date}" for event_date in partitions}
+    for path in base.glob("event_date=*"):
+        if path.is_dir() and path.name not in affected:
+            shutil.rmtree(path)
+    for event_date, records in partitions.items():
+        part_dir = base / f"event_date={event_date}"
+        if part_dir.exists():
+            shutil.rmtree(part_dir)
+        part_dir.mkdir(parents=True, exist_ok=True)
+        with (part_dir / filename).open("w", encoding="utf-8") as stream:
+            for record in records:
+                stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def build_silver(config_path):
+    """Build silver.events and silver.push_events from all bronze hours, deduplicated globally."""
     config = load_config(config_path)
     raw_dir = Path(config["storage"]["raw_dir"])
     raw_dir_resolved = raw_dir if raw_dir.is_absolute() else ROOT / raw_dir
@@ -88,9 +104,7 @@ def build_silver(config_path, hour=None):
     silver_events_dir.mkdir(parents=True, exist_ok=True)
     silver_push_dir.mkdir(parents=True, exist_ok=True)
 
-    # Determine files to read
-    file_pattern = f"event_date=*/events_{hour}.jsonl" if hour else "event_date=*/*.jsonl"
-    files_to_read = sorted(bronze_dir.glob(file_pattern))
+    files_to_read = sorted(bronze_dir.glob("event_date=*/*.jsonl"))
 
     raw_records = []
     for jsonl_file in files_to_read:
@@ -105,7 +119,7 @@ def build_silver(config_path, hour=None):
 
     total_bronze_records = len(raw_records)
     if not total_bronze_records:
-        raise ValueError(f"No bronze records found in {bronze_dir} for pattern {file_pattern}")
+        raise ValueError(f"No bronze records found in {bronze_dir}")
 
     deduped_records, conflicts = deduplicate_records(raw_records)
     total_silver_events = len(deduped_records)
@@ -123,28 +137,14 @@ def build_silver(config_path, hour=None):
             if push_record:
                 push_by_date[event_date].append(push_record)
 
-    # Idempotent write: clean and write affected partitions
-    for event_date, records in events_by_date.items():
-        part_dir = silver_events_dir / f"event_date={event_date}"
-        if part_dir.exists() and not hour:
-            shutil.rmtree(part_dir)
-        part_dir.mkdir(parents=True, exist_ok=True)
-        out_file = part_dir / (f"events_{hour}.jsonl" if hour else "events.jsonl")
-        with out_file.open("w", encoding="utf-8") as stream:
-            for rec in records:
-                stream.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    replace_partitions(silver_events_dir, events_by_date, "events.jsonl")
+    replace_partitions(silver_push_dir, push_by_date, "push_events.jsonl")
+    total_push_events = sum(len(records) for records in push_by_date.values())
 
-    total_push_events = 0
-    for event_date, records in push_by_date.items():
-        part_dir = silver_push_dir / f"event_date={event_date}"
-        if part_dir.exists() and not hour:
-            shutil.rmtree(part_dir)
-        part_dir.mkdir(parents=True, exist_ok=True)
-        out_file = part_dir / (f"push_events_{hour}.jsonl" if hour else "push_events.jsonl")
-        with out_file.open("w", encoding="utf-8") as stream:
-            for rec in records:
-                stream.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        total_push_events += len(records)
+    conflicts_path = silver_base / "conflicts.jsonl"
+    with conflicts_path.open("w", encoding="utf-8") as stream:
+        for conflict in conflicts:
+            stream.write(json.dumps(conflict, ensure_ascii=False) + "\n")
 
     result = {
         "status": "success",
@@ -153,6 +153,7 @@ def build_silver(config_path, hour=None):
         "silver_events_written": total_silver_events,
         "duplicates_removed": duplicate_count,
         "conflicts_detected": len(conflicts),
+        "conflicts_path": str(conflicts_path.relative_to(ROOT)) if conflicts_path.is_relative_to(ROOT) else str(conflicts_path),
         "push_events_written": total_push_events,
         "partitions": sorted(events_by_date.keys()),
         "output_dirs": {
@@ -170,9 +171,8 @@ def build_silver(config_path, hour=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=str(ROOT / "config/dev.yml"), type=Path)
-    parser.add_argument("--hour", default=None, help="Process single UTC hour (YYYY-MM-DD-H)")
     args = parser.parse_args(argv)
-    build_silver(args.config, args.hour)
+    build_silver(args.config)
     return 0
 
 

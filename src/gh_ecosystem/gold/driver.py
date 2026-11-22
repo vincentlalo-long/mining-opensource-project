@@ -12,8 +12,8 @@ from gh_ecosystem.ingest import load_config
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def build_gold(config_path, hour=None):
-    """Build gold.event_volume_daily from silver.events with idempotent date replacement."""
+def build_gold(config_path):
+    """Build gold.event_volume_daily from all silver.events with idempotent date replacement."""
     config = load_config(config_path)
     raw_dir = Path(config["storage"]["raw_dir"])
     raw_dir_resolved = raw_dir if raw_dir.is_absolute() else ROOT / raw_dir
@@ -27,8 +27,7 @@ def build_gold(config_path, hour=None):
     gold_metric_dir = gold_base / "event_volume_daily"
     gold_metric_dir.mkdir(parents=True, exist_ok=True)
 
-    file_pattern = f"event_date=*/events_{hour}.jsonl" if hour else "event_date=*/*.jsonl"
-    files_to_read = sorted(silver_events_dir.glob(file_pattern))
+    files_to_read = sorted(silver_events_dir.glob("event_date=*/events.jsonl"))
 
     silver_records = []
     for jsonl_file in files_to_read:
@@ -42,7 +41,7 @@ def build_gold(config_path, hour=None):
                         raise ValueError(f"Malformed record in silver file {jsonl_file}: {error}") from error
 
     if not silver_records:
-        raise ValueError(f"No silver events found in {silver_events_dir} for pattern {file_pattern}")
+        raise ValueError(f"No silver events found in {silver_events_dir}")
 
     daily_metrics = compute_event_volume_daily(silver_records)
 
@@ -53,14 +52,19 @@ def build_gold(config_path, hour=None):
     total_partitions = 0
     total_metric_rows = 0
 
-    # Idempotent replacement: clean affected partition directory before writing
+    # Idempotent replacement: rebuild every date partition and remove stale ones
+    affected = {f"event_date={event_date}" for event_date in by_date}
+    for path in gold_metric_dir.glob("event_date=*"):
+        if path.is_dir() and path.name not in affected:
+            shutil.rmtree(path)
+
     for event_date, rows in by_date.items():
         part_dir = gold_metric_dir / f"event_date={event_date}"
-        if part_dir.exists() and not hour:
+        if part_dir.exists():
             shutil.rmtree(part_dir)
         part_dir.mkdir(parents=True, exist_ok=True)
 
-        jsonl_out = part_dir / (f"volume_{hour}.jsonl" if hour else "volume.jsonl")
+        jsonl_out = part_dir / "volume.jsonl"
         with jsonl_out.open("w", encoding="utf-8") as stream:
             for row in rows:
                 stream.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -83,9 +87,8 @@ def build_gold(config_path, hour=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=str(ROOT / "config/dev.yml"), type=Path)
-    parser.add_argument("--hour", default=None, help="Process single UTC hour (YYYY-MM-DD-H)")
     args = parser.parse_args(argv)
-    build_gold(args.config, args.hour)
+    build_gold(args.config)
     return 0
 
 

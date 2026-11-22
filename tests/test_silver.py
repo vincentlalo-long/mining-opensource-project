@@ -98,24 +98,41 @@ class SilverTests(unittest.TestCase):
         self.assertEqual(conflicts[0]["event_id"], "duplicate_1")
         self.assertEqual(conflicts[0]["occurrences"], 2)
 
-    def test_build_silver_idempotent_rerun(self):
+    def test_build_silver_global_dedup_and_partition_cleanup(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            bronze_dir = temp_path / "data" / "bronze" / "events" / "event_date=2024-01-01"
-            bronze_dir.mkdir(parents=True, exist_ok=True)
+            bronze_base = temp_path / "data" / "bronze" / "events"
+            hour_dir = bronze_base / "event_date=2024-01-01"
+            hour_dir.mkdir(parents=True, exist_ok=True)
 
-            sample_event = {
-                "event_id": "9999",
-                "event_type": "PushEvent",
-                "actor_id": 1,
-                "repo_id": 2,
-                "org_id": None,
-                "created_at": "2024-01-01T12:00:00Z",
-                "payload": '{"push_id": 100, "size": 1, "commits": []}',
-                "ingested_at": "2024-01-01T12:05:00Z",
-                "source_file": "data/raw/2024-01-01-12.json.gz",
-            }
-            (bronze_dir / "events_2024-01-01-12.jsonl").write_text(json.dumps(sample_event) + "\n", encoding="utf-8")
+            def event(event_id, ingested_at, payload, event_type="PushEvent"):
+                return {
+                    "event_id": event_id,
+                    "event_type": event_type,
+                    "actor_id": 1,
+                    "repo_id": 2,
+                    "org_id": None,
+                    "created_at": "2024-01-01T12:00:00Z",
+                    "payload": payload,
+                    "ingested_at": ingested_at,
+                    "source_file": f"data/raw/{ingested_at}.json.gz",
+                }
+
+            hour0 = [
+                event("9999", "2024-01-01T12:05:00Z", '{"push_id": 100, "size": 1, "commits": []}'),
+                event("2000", "2024-01-01T12:05:00Z", '{"msg": "a"}'),
+            ]
+            hour1 = [
+                event("9999", "2024-01-01T12:06:00Z", '{"push_id": 100, "size": 1, "commits": []}'),
+                event("2000", "2024-01-01T12:10:00Z", '{"msg": "b"}'),
+                event("1000", "2024-01-01T12:10:00Z", "{}", event_type="CreateEvent"),
+            ]
+            (hour_dir / "events_2024-01-01-0.jsonl").write_text(
+                "\n".join(json.dumps(e) for e in hour0) + "\n", encoding="utf-8"
+            )
+            (hour_dir / "events_2024-01-01-1.jsonl").write_text(
+                "\n".join(json.dumps(e) for e in hour1) + "\n", encoding="utf-8"
+            )
 
             config_path = temp_path / "config.json"
             config_data = {
@@ -126,15 +143,35 @@ class SilverTests(unittest.TestCase):
             }
             config_path.write_text(json.dumps(config_data), encoding="utf-8")
 
-            res1 = build_silver(config_path)
-            res2 = build_silver(config_path)
-            self.assertEqual(res1["silver_events_written"], 1)
-            self.assertEqual(res2["silver_events_written"], 1)
+            res = build_silver(config_path)
+            self.assertEqual(res["bronze_records_read"], 5)
+            self.assertEqual(res["silver_events_written"], 3)
+            self.assertEqual(res["duplicates_removed"], 2)
+            self.assertEqual(res["conflicts_detected"], 1)
+            self.assertEqual(res["push_events_written"], 2)
 
-            # Check output file has exactly 1 record after rerun
-            events_file = temp_path / "data" / "silver" / "events" / "event_date=2024-01-01" / "events.jsonl"
-            lines = [line for line in events_file.read_text(encoding="utf-8").splitlines() if line]
-            self.assertEqual(len(lines), 1)
+            silver_base = temp_path / "data" / "silver"
+            events_file = silver_base / "events" / "event_date=2024-01-01" / "events.jsonl"
+            push_file = silver_base / "push_events" / "event_date=2024-01-01" / "push_events.jsonl"
+            conflicts_file = silver_base / "conflicts.jsonl"
+            self.assertEqual(len(events_file.read_text(encoding="utf-8").splitlines()), 3)
+            self.assertEqual(len(push_file.read_text(encoding="utf-8").splitlines()), 2)
+            self.assertEqual(len(conflicts_file.read_text(encoding="utf-8").splitlines()), 1)
+
+            # Stale date and legacy per-hour files from an older run must disappear
+            (silver_base / "events" / "event_date=2023-12-31").mkdir(parents=True)
+            (silver_base / "events" / "event_date=2023-12-31" / "events.jsonl").write_text("", encoding="utf-8")
+            (silver_base / "events" / "event_date=2024-01-01" / "events_2024-01-01-1.jsonl").write_text(
+                "", encoding="utf-8"
+            )
+
+            res2 = build_silver(config_path)
+            self.assertEqual(res2["silver_events_written"], 3)
+            self.assertFalse((silver_base / "events" / "event_date=2023-12-31").exists())
+            self.assertFalse(
+                (silver_base / "events" / "event_date=2024-01-01" / "events_2024-01-01-1.jsonl").exists()
+            )
+            self.assertEqual(sorted(p.name for p in events_file.parent.iterdir()), ["events.jsonl"])
 
 
 if __name__ == "__main__":

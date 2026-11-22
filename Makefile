@@ -10,6 +10,7 @@ SHELL := /bin/bash
 
 CONFIG  ?= config/dev.yml
 HOUR    ?= 2024-01-01-0
+SCOPE_HOUR ?=
 RESUME  ?= 0
 FROM    ?= 2024-01-01-0
 TO      ?= 2024-01-01-23
@@ -91,17 +92,17 @@ test-silver: ## exercise silver deduplication and typed PushEvent extraction
 test-gold: ## exercise gold daily volume aggregation and metrics
 	$(PY) -m unittest discover -s tests -p 'test_gold.py' -v
 
-bronze: ## raw .json.gz -> bronze.events, payload kept as string
+bronze: ## raw .json.gz -> bronze.events; SCOPE_HOUR=... for one UTC hour
 	$(call require,jobs/build_bronze.py)
-	$(SPARK) jobs/build_bronze.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
+	$(SPARK) jobs/build_bronze.py --config $(CONFIG) $(if $(SCOPE_HOUR),--hour $(SCOPE_HOUR),)
 
-silver: ## bronze -> silver typed tables, deduplicated
+silver: ## bronze -> silver typed tables, always deduplicated globally
 	$(call require,jobs/build_silver.py)
-	$(SPARK) jobs/build_silver.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
+	$(SPARK) jobs/build_silver.py --config $(CONFIG)
 
-gold: ## silver -> gold metric tables for the dashboard
+gold: ## silver -> gold metric tables, one row per date and event type
 	$(call require,jobs/build_gold.py)
-	$(SPARK) jobs/build_gold.py --config $(CONFIG) $(if $(HOUR),--hour $(HOUR),)
+	$(SPARK) jobs/build_gold.py --config $(CONFIG)
 
 all: ## run ingest -> bronze -> silver -> gold for the FROM..TO hour range
 	$(call require,src/gh_ecosystem/pipeline.py)
